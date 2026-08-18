@@ -1888,9 +1888,7 @@
         <div class="loader-modal-card">
             <div class="loader-icon-container">
                 <div class="loader-icon-pulse"></div>
-                <svg class="loader-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
-                </svg>
+                <div class="spinner dark" style="width: 36px; height: 32px; z-index: 2;"></div>
             </div>
             <h3 class="loader-modal-title">Loading your Drive</h3>
             <p id="loader-status-text" class="loader-modal-subtitle">Connecting to Telegram Saved Messages...</p>
@@ -2543,25 +2541,25 @@
             }
             if (el.loaderFilesCount) {
                 if (total > 0) {
-                    el.loaderFilesCount.textContent = `Loaded ${loaded} items (${scanned}/${total} messages)`;
+                    el.loaderFilesCount.textContent = `Files done: ${loaded} / ${total}`;
                 } else if (loaded > 0) {
-                    el.loaderFilesCount.textContent = `Loaded ${loaded} items`;
+                    el.loaderFilesCount.textContent = `Files done: ${loaded}`;
                 } else {
-                    el.loaderFilesCount.textContent = `Scanning Saved Messages...`;
+                    el.loaderFilesCount.textContent = `Scanning files...`;
                 }
             }
             if (el.loaderStatusText) {
                 if (pct >= 100) {
-                    el.loaderStatusText.textContent = `Drive ready! Loaded ${loaded} items.`;
+                    el.loaderStatusText.textContent = `Drive ready! ${loaded} / ${total || loaded} files loaded.`;
                 } else if (pct > 0) {
-                    el.loaderStatusText.textContent = `Syncing files & folders from Telegram (${pct}%)...`;
+                    el.loaderStatusText.textContent = `Loading files: ${loaded} / ${total || loaded} (${pct}%)...`;
                 } else {
                     el.loaderStatusText.textContent = `Connecting to Telegram Saved Messages...`;
                 }
             }
             if (el.loaderDetailText) {
                 if (pct >= 100) {
-                    el.loaderDetailText.textContent = `All files & folders up to date.`;
+                    el.loaderDetailText.textContent = `All files & folders loaded successfully.`;
                 } else {
                     el.loaderDetailText.textContent = `Please wait while TeleDrive indexes your files...`;
                 }
