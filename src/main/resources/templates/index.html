@@ -1,0 +1,3117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeleDrive — Telegram Cloud Storage</title>
+    <meta name="description" content="A private cloud drive backed by your Telegram Saved Messages.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-canvas: #f8fafc;
+            --bg-surface: #ffffff;
+            --bg-subtle: #f1f5f9;
+            --bg-hover: #e2e8f0;
+            --border-color: #e2e8f0;
+            --border-focus: #3b82f6;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --text-subtle: #94a3b8;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #eff6ff;
+            --primary-glow: rgba(37, 99, 235, 0.18);
+            --danger: #ef4444;
+            --danger-bg: #fef2f2;
+            --danger-hover: #dc2626;
+            --success: #10b981;
+            --success-bg: #ecfdf5;
+            --warning: #f59e0b;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-full: 9999px;
+            --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-canvas);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        svg {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            fill: currentColor;
+        }
+
+        .svg-sprite {
+            position: absolute;
+            width: 0;
+            height: 0;
+            overflow: hidden;
+        }
+
+        button {
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            background: none;
+            outline: none;
+        }
+
+        input, select {
+            font-family: inherit;
+            outline: none;
+        }
+
+        /* ----------------------------------------------------
+           APP SHELL & SCREENS
+        ---------------------------------------------------- */
+        #app-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ----------------------------------------------------
+           AUTH SCREEN
+        ---------------------------------------------------- */
+        .auth-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.08) 0%, rgba(248, 250, 252, 1) 90%);
+            position: relative;
+        }
+
+        .auth-card {
+            width: 100%;
+            max-width: 440px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 40px 36px;
+            box-shadow: var(--shadow-xl);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            animation: fadeIn .3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .auth-logo {
+            width: 64px;
+            height: 64px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: #ffffff;
+            display: grid;
+            place-items: center;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+        }
+
+        .auth-logo svg {
+            width: 34px;
+            height: 34px;
+        }
+
+        .auth-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+
+        .auth-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 28px;
+            line-height: 1.5;
+        }
+
+        .auth-form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            text-align: left;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .phone-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .country-select {
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-subtle);
+            color: var(--text-main);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color .15s;
+        }
+
+        .phone-input-wrap {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .phone-input {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-surface);
+            font-size: 0.95rem;
+            color: var(--text-main);
+            transition: all .15s;
+        }
+
+        .phone-input:focus, .country-select:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        /* OTP Boxes */
+        .otp-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 8px 0;
+        }
+
+        .otp-box {
+            width: 52px;
+            height: 56px;
+            border: 1.5px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-main);
+            background: var(--bg-surface);
+            transition: all .15s;
+        }
+
+        .otp-box:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+            background: #ffffff;
+        }
+
+        .btn-primary {
+            height: 44px;
+            border-radius: var(--radius-sm);
+            background: var(--primary);
+            color: #ffffff;
+            font-size: 0.92rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all .15s;
+            box-shadow: 0 2px 8px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            height: 42px;
+            border-radius: var(--radius-sm);
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all .15s;
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-subtle);
+            border-color: #cbd5e1;
+        }
+
+        .auth-back-link {
+            font-size: 0.85rem;
+            color: var(--primary);
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+
+        .auth-back-link:hover {
+            text-decoration: underline;
+        }
+
+        .delivery-hint {
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            background: var(--primary-light);
+            color: var(--primary-hover);
+            font-size: 0.82rem;
+            line-height: 1.45;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .resend-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .resend-btn {
+            color: var(--primary);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .resend-btn:disabled {
+            color: var(--text-subtle);
+            cursor: not-allowed;
+        }
+
+        /* ----------------------------------------------------
+           GOOGLE DRIVE INTERFACE
+        ---------------------------------------------------- */
+        .drive-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: var(--bg-canvas);
+            position: relative;
+        }
+
+        /* Topbar */
+        .topbar {
+            height: 64px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 20;
+            gap: 16px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 240px;
+        }
+
+        .drive-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 700;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+
+        .drive-logo-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: #ffffff;
+            display: grid;
+            place-items: center;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+        }
+
+        .topbar-center {
+            flex: 1;
+            max-width: 680px;
+            position: relative;
+        }
+
+        .search-bar {
+            height: 44px;
+            background: var(--bg-subtle);
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 12px;
+            color: var(--text-muted);
+            border: 1px solid transparent;
+            transition: all .2s;
+        }
+
+        .search-bar:focus-within {
+            background: var(--bg-surface);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+            color: var(--text-main);
+        }
+
+        .search-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-subtle);
+        }
+
+        .clear-search-btn {
+            color: var(--text-subtle);
+            display: none;
+            padding: 4px;
+            border-radius: 50%;
+        }
+
+        .clear-search-btn:hover {
+            color: var(--text-main);
+            background: var(--bg-hover);
+        }
+
+        .search-results-dropdown {
+            position: absolute;
+            top: 50px;
+            left: 0;
+            right: 0;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-xl);
+            max-height: 360px;
+            overflow-y: auto;
+            z-index: 50;
+            display: none;
+            flex-direction: column;
+            padding: 6px;
+        }
+
+        .search-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background .15s;
+        }
+
+        .search-item:hover {
+            background: var(--bg-subtle);
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: var(--text-muted);
+            transition: all .15s;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-subtle);
+            color: var(--text-main);
+        }
+
+        .user-menu-wrap {
+            position: relative;
+        }
+
+        .user-avatar-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 0.85rem;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            border: 2px solid #ffffff;
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: 48px;
+            right: 0;
+            width: 260px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-xl);
+            padding: 16px;
+            z-index: 60;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            animation: fadeIn .15s ease;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .user-info-text {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .user-name {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-phone {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 38px;
+            border-radius: var(--radius-sm);
+            background: var(--danger-bg);
+            color: var(--danger);
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all .15s;
+        }
+
+        .logout-btn:hover {
+            background: #fee2e2;
+            color: var(--danger-hover);
+        }
+
+        /* Layout Body */
+        .drive-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 256px;
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 18px 14px;
+            gap: 20px;
+            flex-shrink: 0;
+        }
+
+        .new-btn-wrap {
+            position: relative;
+        }
+
+        .new-btn {
+            height: 52px;
+            padding: 0 22px;
+            border-radius: var(--radius-full);
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-md);
+            color: var(--text-main);
+            font-size: 0.95rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            transition: all .2s;
+            cursor: pointer;
+            width: 150px;
+        }
+
+        .new-btn:hover {
+            box-shadow: var(--shadow-lg);
+            background: var(--bg-subtle);
+            border-color: #cbd5e1;
+        }
+
+        .new-btn svg {
+            color: var(--primary);
+            width: 22px;
+            height: 22px;
+        }
+
+        .new-menu-dropdown {
+            position: absolute;
+            top: 58px;
+            left: 0;
+            width: 220px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-xl);
+            padding: 8px 6px;
+            z-index: 50;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            animation: fadeIn .15s ease;
+        }
+
+        .new-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            color: var(--text-main);
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .15s;
+        }
+
+        .new-menu-item:hover {
+            background: var(--bg-subtle);
+        }
+
+        .new-menu-item svg {
+            color: var(--text-muted);
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 16px;
+            border-radius: var(--radius-full);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-subtle);
+            color: var(--text-main);
+        }
+
+        .nav-item.active {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .nav-item svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .sidebar-storage {
+            margin-top: auto;
+            background: var(--bg-subtle);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .storage-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .storage-bar-track {
+            height: 6px;
+            background: #cbd5e1;
+            border-radius: var(--radius-full);
+            overflow: hidden;
+        }
+
+        .storage-bar-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: var(--radius-full);
+            width: 15%;
+            transition: width .3s ease;
+        }
+
+        .storage-caption {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        /* Main Drive View */
+        .main-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-canvas);
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .main-header {
+            padding: 20px 28px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .breadcrumb-node {
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            border-radius: var(--radius-sm);
+            padding: 2px 6px;
+            transition: background .15s;
+        }
+
+        .breadcrumb-node:hover {
+            background: var(--bg-hover);
+        }
+
+        .breadcrumb-separator {
+            color: var(--text-subtle);
+            font-size: 1rem;
+        }
+
+        .view-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 4px;
+        }
+
+        .view-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: var(--radius-sm);
+            display: grid;
+            place-items: center;
+            color: var(--text-muted);
+            transition: all .15s;
+        }
+
+        .view-btn:hover {
+            color: var(--text-main);
+        }
+
+        .view-btn.active {
+            background: var(--bg-subtle);
+            color: var(--primary);
+        }
+
+        /* Dropzone & Content */
+        .content-area {
+            flex: 1;
+            padding: 10px 28px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            position: relative;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        /* Grid View */
+        .folders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 14px;
+        }
+
+        .folder-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            cursor: pointer;
+            transition: all .2s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
+        }
+
+        .folder-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: var(--shadow-sm);
+            transform: translateY(-1px);
+        }
+
+        .folder-card.selected {
+            background: var(--primary-light);
+            border-color: var(--primary);
+        }
+
+        .folder-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .folder-icon {
+            color: #3b82f6;
+            width: 24px;
+            height: 24px;
+        }
+
+        .folder-name {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .files-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .file-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            transition: all .2s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
+            position: relative;
+        }
+
+        .file-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .file-card.selected {
+            background: var(--primary-light);
+            border-color: var(--primary);
+        }
+
+        .file-preview {
+            height: 120px;
+            background: var(--bg-subtle);
+            display: grid;
+            place-items: center;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .file-preview svg {
+            width: 44px;
+            height: 44px;
+        }
+
+        .file-details {
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .file-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .file-name {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-meta {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .item-menu-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: var(--text-subtle);
+            transition: all .15s;
+        }
+
+        .item-menu-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-main);
+        }
+
+        /* List View */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            font-size: 0.88rem;
+        }
+
+        .items-table th {
+            text-align: left;
+            padding: 12px 16px;
+            background: var(--bg-subtle);
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .items-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .items-table tr {
+            cursor: pointer;
+            transition: background .1s;
+        }
+
+        .items-table tr:hover {
+            background: var(--bg-subtle);
+        }
+
+        .items-table tr.selected {
+            background: var(--primary-light);
+        }
+
+        .table-name-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+        }
+
+        /* Empty State */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+            gap: 16px;
+        }
+
+        .empty-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--primary-light);
+            color: var(--primary);
+            display: grid;
+            place-items: center;
+        }
+
+        .empty-icon svg {
+            width: 40px;
+            height: 40px;
+        }
+
+        .empty-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .empty-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            max-width: 360px;
+            line-height: 1.5;
+        }
+
+        .empty-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        /* Context Menu & Modals */
+        .context-menu {
+            position: fixed;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-xl);
+            padding: 6px;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            min-width: 180px;
+            gap: 2px;
+            animation: fadeIn .1s ease;
+        }
+
+        .context-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: background .15s;
+        }
+
+        .context-menu-item:hover {
+            background: var(--bg-subtle);
+        }
+
+        .context-menu-item.danger {
+            color: var(--danger);
+        }
+
+        .context-menu-item.danger:hover {
+            background: var(--danger-bg);
+        }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(4px);
+            display: none;
+            place-items: center;
+            z-index: 150;
+            padding: 20px;
+            animation: fadeIn .2s ease;
+        }
+
+        .modal-card {
+            width: 100%;
+            max-width: 440px;
+            background: var(--bg-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            animation: scaleIn .2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .modal-close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: var(--text-muted);
+            transition: all .15s;
+        }
+
+        .modal-close-btn:hover {
+            background: var(--bg-subtle);
+            color: var(--text-main);
+        }
+
+        .modal-input {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            color: var(--text-main);
+            transition: all .15s;
+        }
+
+        .modal-input:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        /* Folder Tree Picker */
+        .folder-tree {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-subtle);
+            max-height: 240px;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+
+        .tree-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin: 1px 4px;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            transition: background .1s;
+            user-select: none;
+        }
+
+        .tree-row:hover { background: var(--bg-hover); }
+
+        .tree-row.selected {
+            background: var(--primary-glow);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .tree-chevron {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            display: grid;
+            place-items: center;
+            border-radius: 4px;
+            transition: transform .15s;
+            color: var(--text-muted);
+        }
+
+        .tree-chevron.open { transform: rotate(90deg); }
+
+        .tree-chevron svg { width: 12px; height: 12px; }
+
+        .tree-chevron.leaf { visibility: hidden; pointer-events: none; }
+
+        .tree-children { display: none; }
+        .tree-children.open { display: block; }
+
+        /* Loading Progress Modal */
+        .loader-modal-card {
+            width: 100%;
+            max-width: 440px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 30px var(--primary-glow);
+            padding: 32px 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 14px;
+            animation: scaleIn .25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .loader-icon-container {
+            position: relative;
+            width: 68px;
+            height: 68px;
+            display: grid;
+            place-items: center;
+            margin-bottom: 2px;
+        }
+
+        .loader-icon-pulse {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: var(--primary-glow);
+            animation: pulseRing 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        .loader-icon {
+            width: 38px;
+            height: 38px;
+            color: var(--primary);
+            z-index: 2;
+            animation: floatSlow 3s ease-in-out infinite;
+        }
+
+        @keyframes pulseRing {
+            0% { transform: scale(0.85); opacity: 0.8; }
+            50% { transform: scale(1.25); opacity: 0.2; }
+            100% { transform: scale(0.85); opacity: 0.8; }
+        }
+
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        .loader-modal-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 0;
+        }
+
+        .loader-modal-subtitle {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            margin: 0 0 6px 0;
+        }
+
+        .loader-metrics {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: var(--text-main);
+            padding: 0 2px;
+        }
+
+        .loader-count-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-main);
+        }
+
+        .loader-percent-badge {
+            background: var(--primary-glow);
+            color: var(--primary);
+            padding: 2px 10px;
+            border-radius: var(--radius-full);
+            font-weight: 700;
+            font-size: 0.85rem;
+            border: 1px solid rgba(37, 99, 235, 0.2);
+        }
+
+        .loader-progress-track {
+            width: 100%;
+            height: 10px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .loader-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #2563eb, #38bdf8);
+            border-radius: var(--radius-full);
+            box-shadow: 0 0 10px var(--primary-glow);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .loader-modal-footer {
+            margin-top: 2px;
+        }
+
+        .loader-detail-text {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        /* Upload Progress Drawer */
+        .upload-drawer {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 340px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-xl);
+            padding: 16px 18px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 120;
+            animation: slideUp .25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .upload-drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .upload-progress-bar {
+            height: 6px;
+            background: var(--bg-subtle);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+        }
+
+        .upload-progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width .2s ease;
+        }
+
+        .upload-drawer-status {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Drag Overlay */
+        .drag-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(37, 99, 235, 0.08);
+            border: 2px dashed var(--primary);
+            border-radius: var(--radius-md);
+            margin: 16px 28px;
+            display: none;
+            place-items: center;
+            z-index: 80;
+            backdrop-filter: blur(2px);
+            pointer-events: none;
+        }
+
+        .drag-overlay-box {
+            background: var(--bg-surface);
+            padding: 24px 36px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .drag-overlay-box svg {
+            width: 48px;
+            height: 48px;
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 200;
+        }
+
+        .toast {
+            background: #1e293b;
+            color: #ffffff;
+            padding: 12px 18px;
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg);
+            font-size: 0.88rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn .2s ease;
+        }
+
+        .toast.error {
+            background: #b91c1c;
+        }
+
+        .toast.success {
+            background: #047857;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        .spinner.dark {
+            border-color: #cbd5e1;
+            border-top-color: var(--primary);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SVG Icon Definitions -->
+    <svg class="svg-sprite" aria-hidden="true">
+        <symbol id="icon-drive" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z"/></symbol>
+        <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></symbol>
+        <symbol id="icon-file" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></symbol>
+        <symbol id="icon-image" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></symbol>
+        <symbol id="icon-pdf" viewBox="0 0 24 24"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/></symbol>
+        <symbol id="icon-video" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></symbol>
+        <symbol id="icon-audio" viewBox="0 0 24 24"><path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/></symbol>
+        <symbol id="icon-archive" viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></symbol>
+        <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
+        <symbol id="icon-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+        <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></symbol>
+        <symbol id="icon-folder-upload" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 8v3h-4v-3H7l5-5 5 5h-3z"/></symbol>
+        <symbol id="icon-download" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></symbol>
+        <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+        <symbol id="icon-edit" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></symbol>
+        <symbol id="icon-move" viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></symbol>
+        <symbol id="icon-copy" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></symbol>
+        <symbol id="icon-grid" viewBox="0 0 24 24"><path d="M4 11h5V5H4v6zm0 7h5v-6H4v6zm6 0h5v-6h-5v6zm6 0h5v-6h-5v6zm-6-7h5V5h-5v6zm6-6v6h5V5h-5z"/></symbol>
+        <symbol id="icon-list" viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></symbol>
+        <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
+        <symbol id="icon-more" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
+        <symbol id="icon-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+        <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></symbol>
+    </svg>
+
+    <div id="app-container">
+
+        <!-- ==============================================
+             AUTH VIEW
+        =============================================== -->
+        <section id="auth-view" class="auth-wrapper">
+            <div class="auth-card">
+                <div class="auth-logo">
+                    <svg><use href="#icon-drive"></use></svg>
+                </div>
+                <h1 class="auth-title">Welcome to TeleDrive</h1>
+                <p class="auth-subtitle">Private, unlimited cloud storage powered by Telegram Saved Messages.</p>
+
+                <!-- Phone Step -->
+                <form id="phone-form" class="auth-form">
+                    <div class="form-group">
+                        <label class="form-label" for="phone-number">Enter your Telegram Phone Number</label>
+                        <div class="phone-group">
+                            <select id="country-select" class="country-select">
+                                <option value="+91">🇮🇳 +91</option>
+                                <option value="+1">🇺🇸 +1</option>
+                                <option value="+44">🇬🇧 +44</option>
+                                <option value="+49">🇩🇪 +49</option>
+                                <option value="+33">🇫🇷 +33</option>
+                                <option value="+7">🇷🇺 +7</option>
+                                <option value="+86">🇨🇳 +86</option>
+                                <option value="+81">🇯🇵 +81</option>
+                                <option value="+55">🇧🇷 +55</option>
+                                <option value="">Other</option>
+                            </select>
+                            <div class="phone-input-wrap">
+                                <input id="phone-number" class="phone-input" type="tel" placeholder="98765 43210" required autocomplete="tel">
+                            </div>
+                        </div>
+                    </div>
+                    <button id="send-phone-btn" class="btn-primary" type="submit">
+                        <span>Continue</span>
+                        <svg style="width: 16px; height: 16px;"><use href="#icon-plus"></use></svg>
+                    </button>
+                </form>
+
+                <!-- OTP Step -->
+                <form id="otp-form" class="auth-form" style="display: none;">
+                    <button id="back-to-phone-btn" class="auth-back-link" type="button">
+                        ← Change Phone Number
+                    </button>
+                    <div class="form-group">
+                        <label class="form-label">Enter 5-digit Verification Code</label>
+                        <div class="otp-container">
+                            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" autocomplete="off">
+                        </div>
+                    </div>
+                    <div id="delivery-hint-box" class="delivery-hint">
+                        <svg style="width: 16px; height: 16px; margin-top: 1px;"><use href="#icon-drive"></use></svg>
+                        <span id="delivery-hint-text">We sent a code to the Telegram app on your other device.</span>
+                    </div>
+                    <div class="resend-row">
+                        <span id="countdown-text">Resend code in <strong id="timer-val">60</strong>s</span>
+                        <button id="resend-otp-btn" class="resend-btn" type="button" disabled>Resend Code</button>
+                    </div>
+                    <button id="submit-otp-btn" class="btn-primary" type="submit">
+                        <span>Verify & Open Drive</span>
+                    </button>
+                </form>
+
+                <!-- 2FA Password Step -->
+                <form id="password-form" class="auth-form" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label" for="twofa-password">Two-Step Verification Password</label>
+                        <input id="twofa-password" class="phone-input" type="password" placeholder="Enter your 2FA password" required>
+                    </div>
+                    <button id="submit-password-btn" class="btn-primary" type="submit">
+                        <span>Unlock Drive</span>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ==============================================
+             GOOGLE DRIVE MAIN VIEW
+        =============================================== -->
+        <section id="drive-view" class="drive-container" style="display: none;">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <a class="drive-logo" href="/" onclick="event.preventDefault(); navigateToFolder('root');">
+                        <div class="drive-logo-icon">
+                            <svg><use href="#icon-drive"></use></svg>
+                        </div>
+                        <span>TeleDrive</span>
+                    </a>
+                </div>
+
+                <div class="topbar-center">
+                    <div class="search-bar">
+                        <svg><use href="#icon-search"></use></svg>
+                        <input id="global-search-input" class="search-input" type="search" placeholder="Search in Drive" autocomplete="off">
+                        <button id="clear-search-btn" class="clear-search-btn" type="button">
+                            <svg><use href="#icon-close"></use></svg>
+                        </button>
+                    </div>
+                    <div id="search-dropdown" class="search-results-dropdown"></div>
+                </div>
+
+                <div class="topbar-right">
+                    <button id="refresh-drive-btn" class="icon-btn" title="Refresh Drive" type="button">
+                        <svg><use href="#icon-refresh"></use></svg>
+                    </button>
+
+                    <div class="user-menu-wrap">
+                        <button id="user-avatar-btn" class="user-avatar-btn" type="button">
+                            <span id="user-initials">CC</span>
+                        </button>
+                        <div id="user-dropdown" class="user-dropdown">
+                            <div class="user-info">
+                                <div class="user-avatar-btn" style="width: 44px; height: 44px; font-size: 1rem;">
+                                    <span id="user-initials-large">CC</span>
+                                </div>
+                                <div class="user-info-text">
+                                    <span id="user-full-name" class="user-name">Telegram User</span>
+                                    <span id="user-phone-number" class="user-phone">+919448572938</span>
+                                </div>
+                            </div>
+                            <button id="logout-btn" class="logout-btn" type="button">
+                                <svg><use href="#icon-logout"></use></svg>
+                                <span>Sign Out</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Layout Body -->
+            <div class="drive-body">
+                <!-- Sidebar -->
+                <aside class="sidebar">
+                    <div class="new-btn-wrap">
+                        <button id="new-action-btn" class="new-btn" type="button">
+                            <svg><use href="#icon-plus"></use></svg>
+                            <span>New</span>
+                        </button>
+                        <div id="new-menu-dropdown" class="new-menu-dropdown">
+                            <div class="new-menu-item" onclick="openNewFolderModal()">
+                                <svg><use href="#icon-folder"></use></svg>
+                                <span>New folder</span>
+                            </div>
+                            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 4px 0;">
+                            <div class="new-menu-item" onclick="triggerFileUpload()">
+                                <svg><use href="#icon-upload"></use></svg>
+                                <span>File upload</span>
+                            </div>
+                            <div class="new-menu-item" onclick="triggerFolderUpload()">
+                                <svg><use href="#icon-folder-upload"></use></svg>
+                                <span>Folder upload</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <nav class="sidebar-nav">
+                        <div class="nav-item active" onclick="navigateToFolder('root')">
+                            <svg><use href="#icon-drive"></use></svg>
+                            <span>My Drive</span>
+                        </div>
+                    </nav>
+
+                    <div class="sidebar-storage">
+                        <div class="storage-header">
+                            <span>Storage</span>
+                            <button id="refresh-storage-btn" class="icon-btn" style="width: 24px; height: 24px;" title="Refresh Storage">
+                                <svg style="width: 14px; height: 14px;"><use href="#icon-refresh"></use></svg>
+                            </button>
+                        </div>
+                        <div class="storage-bar-track">
+                            <div id="storage-progress" class="storage-bar-fill"></div>
+                        </div>
+                        <span id="storage-text" class="storage-caption">Calculating storage…</span>
+                    </div>
+                </aside>
+
+                <!-- Main Content Area -->
+                <main class="main-view" id="main-dropzone">
+                    <div class="drag-overlay" id="drag-overlay">
+                        <div class="drag-overlay-box">
+                            <svg><use href="#icon-upload"></use></svg>
+                            <span>Drop files here to upload to TeleDrive</span>
+                        </div>
+                    </div>
+
+                    <div class="main-header">
+                        <div id="breadcrumbs-bar" class="breadcrumbs">
+                            <span class="breadcrumb-node" onclick="navigateToFolder('root')">My Drive</span>
+                        </div>
+
+                        <div class="view-controls">
+                            <button id="grid-view-btn" class="view-btn active" title="Grid View" type="button">
+                                <svg><use href="#icon-grid"></use></svg>
+                            </button>
+                            <button id="list-view-btn" class="view-btn" title="List View" type="button">
+                                <svg><use href="#icon-list"></use></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="content-area" class="content-area">
+                        <!-- Folders Section -->
+                        <div id="folders-section" style="display: none;">
+                            <h2 class="section-title">Folders</h2>
+                            <div id="folders-grid" class="folders-grid"></div>
+                        </div>
+
+                        <!-- Files Section -->
+                        <div id="files-section" style="display: none;">
+                            <h2 class="section-title">Files</h2>
+                            <div id="files-grid" class="files-grid"></div>
+                            <table id="files-table" class="items-table" style="display: none;">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Size</th>
+                                        <th>Modified</th>
+                                        <th style="width: 40px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="files-table-body"></tbody>
+                            </table>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div id="empty-state" class="empty-state" style="display: none;">
+                            <div class="empty-icon">
+                                <svg><use href="#icon-folder"></use></svg>
+                            </div>
+                            <h2 class="empty-title">This folder is empty</h2>
+                            <p class="empty-subtitle">Drop files here or use the "+ New" button to upload files and folders.</p>
+                            <div class="empty-actions">
+                                <button class="btn-secondary" type="button" onclick="openNewFolderModal()">
+                                    <svg style="width: 16px; height: 16px;"><use href="#icon-folder"></use></svg>
+                                    <span>New folder</span>
+                                </button>
+                                <button class="btn-primary" type="button" onclick="triggerFileUpload()">
+                                    <svg style="width: 16px; height: 16px;"><use href="#icon-upload"></use></svg>
+                                    <span>Upload files</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Hidden File Inputs -->
+    <input id="hidden-file-input" type="file" multiple style="display: none;">
+    <input id="hidden-directory-input" type="file" webkitdirectory directory multiple style="display: none;">
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="context-menu">
+        <div class="context-menu-item" id="ctx-download" onclick="ctxAction('download')">
+            <svg><use href="#icon-download"></use></svg>
+            <span>Download</span>
+        </div>
+        <div class="context-menu-item" id="ctx-rename" onclick="ctxAction('rename')">
+            <svg><use href="#icon-edit"></use></svg>
+            <span>Rename</span>
+        </div>
+        <div class="context-menu-item" id="ctx-move" onclick="ctxAction('move')">
+            <svg><use href="#icon-move"></use></svg>
+            <span>Move to</span>
+        </div>
+        <div class="context-menu-item" id="ctx-copy" onclick="ctxAction('copy')">
+            <svg><use href="#icon-copy"></use></svg>
+            <span>Make a copy</span>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 3px 0;">
+        <div class="context-menu-item danger" id="ctx-delete" onclick="ctxAction('delete')">
+            <svg><use href="#icon-trash"></use></svg>
+            <span>Delete</span>
+        </div>
+    </div>
+
+    <!-- Action Modal -->
+    <div id="action-modal-backdrop" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modal-title" class="modal-title">New folder</h3>
+                <button class="modal-close-btn" type="button" onclick="closeModal()">
+                    <svg><use href="#icon-close"></use></svg>
+                </button>
+            </div>
+            <form id="modal-form" onsubmit="handleModalSubmit(event)">
+                <div class="form-group">
+                    <label id="modal-input-label" class="form-label" for="modal-input-field">Folder name</label>
+                    <input id="modal-input-field" class="modal-input" type="text" required autocomplete="off">
+                </div>
+                <div id="modal-select-group" class="form-group" style="display: none;">
+                    <label class="form-label">Destination folder</label>
+                    <div id="folder-tree-picker" class="folder-tree"></div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" type="button" onclick="closeModal()">Cancel</button>
+                    <button id="modal-submit-btn" class="btn-primary" type="submit">Confirm</button>
+                </div>
+            </form>
+        </div>
+    <!-- Drive Loading / Sync Modal -->
+    <div id="drive-loader-backdrop" class="modal-backdrop" style="z-index: 300; display: none;">
+        <div class="loader-modal-card">
+            <div class="loader-icon-container">
+                <div class="loader-icon-pulse"></div>
+                <svg class="loader-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
+                </svg>
+            </div>
+            <h3 class="loader-modal-title">Loading your Drive</h3>
+            <p id="loader-status-text" class="loader-modal-subtitle">Connecting to Telegram Saved Messages...</p>
+
+            <div class="loader-metrics">
+                <span id="loader-files-count" class="loader-count-label">Loaded 0 items</span>
+                <span id="loader-percent-text" class="loader-percent-badge">0%</span>
+            </div>
+
+            <div class="loader-progress-track">
+                <div id="loader-progress-fill" class="loader-progress-bar" style="width: 0%;"></div>
+            </div>
+
+            <div class="loader-modal-footer">
+                <span id="loader-detail-text" class="loader-detail-text">Syncing folders & files...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Floating Drawer -->
+    <div id="upload-drawer" class="upload-drawer">
+        <div class="upload-drawer-header">
+            <span id="upload-drawer-title">Uploading 1 file</span>
+            <button class="icon-btn" style="width: 24px; height: 24px;" onclick="closeUploadDrawer()">
+                <svg style="width: 14px; height: 14px;"><use href="#icon-close"></use></svg>
+            </button>
+        </div>
+        <div class="upload-progress-bar">
+            <div id="upload-drawer-progress" class="upload-progress-fill"></div>
+        </div>
+        <div class="upload-drawer-status">
+            <span id="upload-drawer-filename">document.pdf</span>
+            <span id="upload-drawer-percent">0%</span>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Region -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script>
+        /* ----------------------------------------------------
+           APPLICATION STATE
+        ---------------------------------------------------- */
+        const state = {
+            currentFolderId: 'root',
+            currentFolderBreadcrumbs: [],
+            items: [],
+            allFolders: [],
+            viewMode: localStorage.getItem('teledrive_view') || 'grid',
+            activeContextItem: null,
+            modalAction: null,
+            authInterval: null,
+            resendCountdown: 60,
+            resendTimer: null
+        };
+
+        /* ----------------------------------------------------
+           DOM REFERENCES
+        ---------------------------------------------------- */
+        const el = {
+            authView: document.getElementById('auth-view'),
+            driveView: document.getElementById('drive-view'),
+            phoneForm: document.getElementById('phone-form'),
+            otpForm: document.getElementById('otp-form'),
+            passwordForm: document.getElementById('password-form'),
+            countrySelect: document.getElementById('country-select'),
+            phoneNumber: document.getElementById('phone-number'),
+            sendPhoneBtn: document.getElementById('send-phone-btn'),
+            otpBoxes: Array.from(document.querySelectorAll('.otp-box')),
+            deliveryHintText: document.getElementById('delivery-hint-text'),
+            resendOtpBtn: document.getElementById('resend-otp-btn'),
+            countdownText: document.getElementById('countdown-text'),
+            timerVal: document.getElementById('timer-val'),
+            backToPhoneBtn: document.getElementById('back-to-phone-btn'),
+            twofaPassword: document.getElementById('twofa-password'),
+
+            // Drive Elements
+            globalSearchInput: document.getElementById('global-search-input'),
+            clearSearchBtn: document.getElementById('clear-search-btn'),
+            searchDropdown: document.getElementById('search-dropdown'),
+            refreshDriveBtn: document.getElementById('refresh-drive-btn'),
+            userAvatarBtn: document.getElementById('user-avatar-btn'),
+            userDropdown: document.getElementById('user-dropdown'),
+            userInitials: document.getElementById('user-initials'),
+            userInitialsLarge: document.getElementById('user-initials-large'),
+            userFullName: document.getElementById('user-full-name'),
+            userPhoneNumber: document.getElementById('user-phone-number'),
+            logoutBtn: document.getElementById('logout-btn'),
+
+            newActionBtn: document.getElementById('new-action-btn'),
+            newMenuDropdown: document.getElementById('new-menu-dropdown'),
+            hiddenFileInput: document.getElementById('hidden-file-input'),
+            hiddenDirectoryInput: document.getElementById('hidden-directory-input'),
+
+            refreshStorageBtn: document.getElementById('refresh-storage-btn'),
+            storageProgress: document.getElementById('storage-progress'),
+            storageText: document.getElementById('storage-text'),
+
+            mainDropzone: document.getElementById('main-dropzone'),
+            dragOverlay: document.getElementById('drag-overlay'),
+            breadcrumbsBar: document.getElementById('breadcrumbs-bar'),
+            gridViewBtn: document.getElementById('grid-view-btn'),
+            listViewBtn: document.getElementById('list-view-btn'),
+
+            foldersSection: document.getElementById('folders-section'),
+            foldersGrid: document.getElementById('folders-grid'),
+            filesSection: document.getElementById('files-section'),
+            filesGrid: document.getElementById('files-grid'),
+            filesTable: document.getElementById('files-table'),
+            filesTableBody: document.getElementById('files-table-body'),
+            emptyState: document.getElementById('empty-state'),
+
+            contextMenu: document.getElementById('context-menu'),
+            actionModalBackdrop: document.getElementById('action-modal-backdrop'),
+            modalTitle: document.getElementById('modal-title'),
+            modalInputLabel: document.getElementById('modal-input-label'),
+            modalInputField: document.getElementById('modal-input-field'),
+            modalSelectGroup: document.getElementById('modal-select-group'),
+            folderTreePicker: document.getElementById('folder-tree-picker'),
+            modalSubmitBtn: document.getElementById('modal-submit-btn'),
+
+            uploadDrawer: document.getElementById('upload-drawer'),
+            uploadDrawerTitle: document.getElementById('upload-drawer-title'),
+            uploadDrawerProgress: document.getElementById('upload-drawer-progress'),
+            uploadDrawerFilename: document.getElementById('upload-drawer-filename'),
+            uploadDrawerPercent: document.getElementById('upload-drawer-percent'),
+            toastContainer: document.getElementById('toast-container'),
+
+            // Drive Loader Modal Elements
+            driveLoaderModal: document.getElementById('drive-loader-backdrop'),
+            loaderFilesCount: document.getElementById('loader-files-count'),
+            loaderPercentText: document.getElementById('loader-percent-text'),
+            loaderProgressBar: document.getElementById('loader-progress-fill'),
+            loaderStatusText: document.getElementById('loader-status-text'),
+            loaderDetailText: document.getElementById('loader-detail-text')
+        };
+
+        /* ----------------------------------------------------
+           INITIALIZATION & AUTH STATUS CHECK
+        ---------------------------------------------------- */
+        document.addEventListener('DOMContentLoaded', () => {
+            initOtpInputs();
+            initDragAndDrop();
+            initSearch();
+            initViewToggles();
+            checkAuthStatus();
+        });
+
+        async function checkAuthStatus() {
+            try {
+                const res = await fetch('/login/status');
+                const data = await res.json();
+                if (data.status === 'READY') {
+                    showDriveView(data);
+                } else if (data.status === 'WAITING_FOR_CODE') {
+                    showOtpStep(data);
+                } else if (data.status === 'WAITING_FOR_PASSWORD') {
+                    showPasswordStep();
+                } else {
+                    showAuthView();
+                }
+            } catch (err) {
+                console.error('Failed to check auth status', err);
+                showAuthView();
+            }
+        }
+
+        function showAuthView() {
+            el.authView.style.display = 'flex';
+            el.driveView.style.display = 'none';
+            el.phoneForm.style.display = 'flex';
+            el.otpForm.style.display = 'none';
+            el.passwordForm.style.display = 'none';
+        }
+
+        function showDriveView(authData) {
+            el.authView.style.display = 'none';
+            el.driveView.style.display = 'flex';
+
+            if (authData) {
+                const name = authData.accountName || 'Telegram User';
+                const phone = authData.phoneNumber || '';
+                const initials = getInitials(name);
+                el.userInitials.textContent = initials;
+                el.userInitialsLarge.textContent = initials;
+                el.userFullName.textContent = name;
+                el.userPhoneNumber.textContent = phone;
+            }
+
+            // Sync with animated progress modal on startup
+            syncDriveWithProgress(state.currentFolderId);
+        }
+
+        function getInitials(name) {
+            if (!name) return 'TD';
+            const parts = name.trim().split(/\s+/);
+            if (parts.length >= 2) {
+                return (parts[0][0] + parts[1][0]).toUpperCase();
+            }
+            return name.substring(0, 2).toUpperCase();
+        }
+
+        /* ----------------------------------------------------
+           PHONE & OTP AUTHENTICATION
+        ---------------------------------------------------- */
+        el.phoneForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const country = el.countrySelect.value;
+            const phone = el.phoneNumber.value.trim();
+            const fullPhone = country + phone;
+
+            if (!phone) {
+                showToast('Please enter your phone number', 'error');
+                return;
+            }
+
+            el.sendPhoneBtn.disabled = true;
+            el.sendPhoneBtn.innerHTML = '<span class="spinner"></span><span>Sending Code…</span>';
+
+            try {
+                const res = await fetch('/login/setPhno', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber: fullPhone })
+                });
+                const data = await res.json();
+                await handleAuthResponse(data);
+            } catch (err) {
+                showToast('Connection error. Please try again.', 'error');
+                el.sendPhoneBtn.disabled = false;
+                el.sendPhoneBtn.innerHTML = '<span>Continue</span>';
+            }
+        });
+
+        async function handleAuthResponse(data) {
+            if (data.status === 'WAITING_FOR_CODE') {
+                el.sendPhoneBtn.disabled = false;
+                el.sendPhoneBtn.innerHTML = '<span>Continue</span>';
+                showOtpStep(data);
+                showToast('Verification code sent!', 'success');
+            } else if (data.status === 'READY') {
+                el.sendPhoneBtn.disabled = false;
+                el.sendPhoneBtn.innerHTML = '<span>Continue</span>';
+                showDriveView(data);
+            } else if (data.status === 'STARTING' || data.status === 'IDLE') {
+                // TDLib is still connecting — poll until we get a terminal state
+                await pollUntilReady();
+            } else {
+                el.sendPhoneBtn.disabled = false;
+                el.sendPhoneBtn.innerHTML = '<span>Continue</span>';
+                showToast(data.error || 'Failed to send verification code.', 'error');
+            }
+        }
+
+        async function pollUntilReady() {
+            const MAX_POLLS = 60; // 30 seconds at 500ms intervals
+            for (let i = 0; i < MAX_POLLS; i++) {
+                await new Promise(r => setTimeout(r, 500));
+                try {
+                    const res = await fetch('/login/status');
+                    const data = await res.json();
+                    if (data.status === 'WAITING_FOR_CODE') {
+                        el.sendPhoneBtn.disabled = false;
+                        el.sendPhoneBtn.innerHTML = '<span>Continue</span>';
+                        showOtpStep(data);
+                        showToast('Verification code sent!', 'success');
+                        return;
+                    } else if (data.status === 'READY') {
+                        el.sendPhoneBtn.disabled = false;
+                        el.sendPhoneBtn.innerHTML = '<span>Continue</span>';
+                        showDriveView(data);
+                        return;
+                    } else if (data.status === 'ERROR') {
+                        el.sendPhoneBtn.disabled = false;
+                        el.sendPhoneBtn.innerHTML = '<span>Continue</span>';
+                        showToast(data.error || 'Failed to send verification code.', 'error');
+                        return;
+                    }
+                    // Still STARTING — keep polling
+                } catch (err) {
+                    // Network hiccup, keep trying
+                }
+            }
+            // Timed out
+            el.sendPhoneBtn.disabled = false;
+            el.sendPhoneBtn.innerHTML = '<span>Continue</span>';
+            showToast('Timed out waiting for Telegram. Please try again.', 'error');
+        }
+
+        function showOtpStep(data) {
+            el.phoneForm.style.display = 'none';
+            el.otpForm.style.display = 'flex';
+            el.passwordForm.style.display = 'none';
+
+            // Always clear boxes so a previous attempt never prefills
+            el.otpBoxes.forEach(b => { b.value = ''; });
+
+            if (data.codeDescription) {
+                el.deliveryHintText.textContent = data.codeDescription;
+            }
+            startResendTimer(data.timeout || 60);
+            el.otpBoxes[0].focus();
+        }
+
+        function showPasswordStep() {
+            el.phoneForm.style.display = 'none';
+            el.otpForm.style.display = 'none';
+            el.passwordForm.style.display = 'flex';
+            el.twofaPassword.focus();
+        }
+
+        el.backToPhoneBtn.addEventListener('click', () => {
+            el.otpForm.style.display = 'none';
+            el.phoneForm.style.display = 'flex';
+            clearInterval(state.resendTimer);
+        });
+
+        function initOtpInputs() {
+            el.otpBoxes.forEach((box, idx) => {
+                box.addEventListener('input', (e) => {
+                    const val = e.target.value;
+                    if (val && idx < el.otpBoxes.length - 1) {
+                        el.otpBoxes[idx + 1].focus();
+                    }
+                    checkAndAutoSubmitOtp();
+                });
+
+                box.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && !box.value && idx > 0) {
+                        el.otpBoxes[idx - 1].focus();
+                    }
+                });
+
+                box.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const text = (e.clipboardData || window.clipboardData).getData('text').trim();
+                    if (/^\d+$/.test(text)) {
+                        const digits = text.split('');
+                        el.otpBoxes.forEach((b, i) => {
+                            b.value = digits[i] || '';
+                        });
+                        const lastIdx = Math.min(digits.length, el.otpBoxes.length) - 1;
+                        if (lastIdx >= 0) el.otpBoxes[lastIdx].focus();
+                        checkAndAutoSubmitOtp();
+                    }
+                });
+            });
+        }
+
+        function checkAndAutoSubmitOtp() {
+            const code = el.otpBoxes.map(b => b.value).join('');
+            if (code.length === el.otpBoxes.length) {
+                submitOtp(code);
+            }
+        }
+
+        el.otpForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = el.otpBoxes.map(b => b.value).join('');
+            if (code.length < 5) {
+                showToast('Please enter the full 5-digit verification code.', 'error');
+                return;
+            }
+            submitOtp(code);
+        });
+
+        async function submitOtp(code) {
+            const btn = document.getElementById('submit-otp-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span><span>Verifying…</span>';
+
+            try {
+                const res = await fetch('/login/submitOtp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+                const data = await res.json();
+
+                if (data.status === 'READY') {
+                    showToast('Successfully authenticated!', 'success');
+                    showDriveView(data);
+                } else if (data.status === 'WAITING_FOR_PASSWORD') {
+                    showPasswordStep();
+                    showToast('Two-step verification required.', 'info');
+                } else {
+                    showToast(data.error || 'Invalid verification code.', 'error');
+                    el.otpBoxes.forEach(b => b.value = '');
+                    el.otpBoxes[0].focus();
+                }
+            } catch (err) {
+                showToast('Error validating OTP code.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Verify & Open Drive</span>';
+            }
+        }
+
+        el.passwordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pwd = el.twofaPassword.value;
+            if (!pwd) return;
+
+            const btn = document.getElementById('submit-password-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span><span>Unlocking…</span>';
+
+            try {
+                const res = await fetch('/login/submitPassword', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pwd })
+                });
+                const data = await res.json();
+
+                if (data.status === 'READY') {
+                    showToast('Welcome to your Drive!', 'success');
+                    showDriveView(data);
+                } else {
+                    showToast(data.error || 'Incorrect 2FA password.', 'error');
+                }
+            } catch (err) {
+                showToast('Error verifying password.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Unlock Drive</span>';
+            }
+        });
+
+        function startResendTimer(seconds) {
+            clearInterval(state.resendTimer);
+            state.resendCountdown = seconds;
+            el.resendOtpBtn.disabled = true;
+            el.countdownText.style.display = 'inline';
+
+            state.resendTimer = setInterval(() => {
+                state.resendCountdown--;
+                el.timerVal.textContent = state.resendCountdown;
+                if (state.resendCountdown <= 0) {
+                    clearInterval(state.resendTimer);
+                    el.resendOtpBtn.disabled = false;
+                    el.countdownText.style.display = 'none';
+                }
+            }, 1000);
+        }
+
+        el.resendOtpBtn.addEventListener('click', async () => {
+            try {
+                const res = await fetch('/login/resendOtp', { method: 'POST' });
+                const data = await res.json();
+                if (data.status !== 'ERROR') {
+                    showToast('New code sent!', 'success');
+                    startResendTimer(data.timeout || 60);
+                } else {
+                    showToast(data.error || 'Could not resend code.', 'error');
+                }
+            } catch (err) {
+                showToast('Failed to resend code.', 'error');
+            }
+        });
+
+        el.logoutBtn.addEventListener('click', async () => {
+            try {
+                await fetch('/login/logout', { method: 'POST' });
+                showToast('Logged out successfully.', 'info');
+                showAuthView();
+            } catch (err) {
+                showAuthView();
+            }
+        });
+
+        /* ----------------------------------------------------
+           DRIVE DATA & OPERATIONS
+        ---------------------------------------------------- */
+        let activeSyncSource = null;
+
+        function syncDriveWithProgress(folderId = 'root') {
+            return new Promise((resolve) => {
+                showDriveLoaderModal();
+                updateLoaderProgress(0, 0, 0, 0);
+
+                if (activeSyncSource) {
+                    activeSyncSource.close();
+                    activeSyncSource = null;
+                }
+
+                let completed = false;
+                const eventSource = new EventSource(`/api/drive/sync-stream?parentId=${encodeURIComponent(folderId)}`);
+                activeSyncSource = eventSource;
+
+                eventSource.addEventListener('progress', (e) => {
+                    try {
+                        const data = JSON.parse(e.data);
+                        updateLoaderProgress(data.loaded, data.scanned, data.total, data.percentage);
+                    } catch (err) {
+                        console.error('Error parsing progress event', err);
+                    }
+                });
+
+                eventSource.addEventListener('complete', (e) => {
+                    try {
+                        completed = true;
+                        const data = JSON.parse(e.data);
+                        updateLoaderProgress(data.loaded, data.scanned, data.total, 100);
+
+                        if (data.data) {
+                            state.items = data.data.items || [];
+                            state.currentFolderBreadcrumbs = data.data.breadcrumbs || [];
+                            renderBreadcrumbs();
+                            renderItems();
+                        }
+                    } catch (err) {
+                        console.error('Error parsing complete event', err);
+                    } finally {
+                        eventSource.close();
+                        activeSyncSource = null;
+                        setTimeout(() => {
+                            hideDriveLoaderModal();
+                            loadStorageSummary();
+                            resolve();
+                        }, 400);
+                    }
+                });
+
+                eventSource.onerror = (err) => {
+                    console.warn('Sync stream error or completed, falling back to standard load', err);
+                    eventSource.close();
+                    activeSyncSource = null;
+                    if (!completed) {
+                        loadDriveItems(folderId).finally(() => {
+                            hideDriveLoaderModal();
+                            resolve();
+                        });
+                    }
+                };
+            });
+        }
+
+        function showDriveLoaderModal() {
+            if (el.driveLoaderModal) {
+                el.driveLoaderModal.style.display = 'grid';
+                el.driveLoaderModal.style.opacity = '1';
+            }
+        }
+
+        function hideDriveLoaderModal() {
+            if (el.driveLoaderModal) {
+                el.driveLoaderModal.style.transition = 'opacity 0.3s ease';
+                el.driveLoaderModal.style.opacity = '0';
+                setTimeout(() => {
+                    el.driveLoaderModal.style.display = 'none';
+                    el.driveLoaderModal.style.transition = '';
+                }, 300);
+            }
+        }
+
+        function updateLoaderProgress(loaded, scanned, total, percentage) {
+            const pct = Math.max(0, Math.min(100, Math.round(percentage || 0)));
+            if (el.loaderProgressBar) {
+                el.loaderProgressBar.style.width = `${pct}%`;
+            }
+            if (el.loaderPercentText) {
+                el.loaderPercentText.textContent = `${pct}%`;
+            }
+            if (el.loaderFilesCount) {
+                if (total > 0) {
+                    el.loaderFilesCount.textContent = `Loaded ${loaded} items (${scanned}/${total} messages)`;
+                } else if (loaded > 0) {
+                    el.loaderFilesCount.textContent = `Loaded ${loaded} items`;
+                } else {
+                    el.loaderFilesCount.textContent = `Scanning Saved Messages...`;
+                }
+            }
+            if (el.loaderStatusText) {
+                if (pct >= 100) {
+                    el.loaderStatusText.textContent = `Drive ready! Loaded ${loaded} items.`;
+                } else if (pct > 0) {
+                    el.loaderStatusText.textContent = `Syncing files & folders from Telegram (${pct}%)...`;
+                } else {
+                    el.loaderStatusText.textContent = `Connecting to Telegram Saved Messages...`;
+                }
+            }
+            if (el.loaderDetailText) {
+                if (pct >= 100) {
+                    el.loaderDetailText.textContent = `All files & folders up to date.`;
+                } else {
+                    el.loaderDetailText.textContent = `Please wait while TeleDrive indexes your files...`;
+                }
+            }
+        }
+
+        async function loadDriveItems(folderId = 'root') {
+            state.currentFolderId = folderId;
+            try {
+                const res = await fetch(`/api/drive/items?parentId=${encodeURIComponent(folderId)}`);
+                if (!res.ok) throw new Error('Unauthorized');
+                const data = await res.json();
+
+                state.items = data.items || [];
+                state.currentFolderBreadcrumbs = data.breadcrumbs || [];
+
+                renderBreadcrumbs();
+                renderItems();
+            } catch (err) {
+                console.error('Failed to load drive items', err);
+            }
+        }
+
+        async function loadStorageSummary() {
+            try {
+                const res = await fetch('/api/drive/storage');
+                const data = await res.json();
+                const used = formatBytes(data.usedBytes || 0);
+                el.storageText.textContent = `${used} used across ${data.fileCount || 0} files`;
+                // Arbitrary visual meter (capped relative display)
+                const percent = Math.min(Math.max((data.usedBytes / (1024 * 1024 * 1024 * 10)) * 100, 5), 100);
+                el.storageProgress.style.width = `${percent}%`;
+            } catch (err) {
+                el.storageText.textContent = 'Storage active';
+            }
+        }
+
+        function renderBreadcrumbs() {
+            el.breadcrumbsBar.innerHTML = '';
+
+            const rootNode = document.createElement('span');
+            rootNode.className = 'breadcrumb-node';
+            rootNode.textContent = 'My Drive';
+            rootNode.onclick = () => navigateToFolder('root');
+            el.breadcrumbsBar.appendChild(rootNode);
+
+            state.currentFolderBreadcrumbs.forEach(crumb => {
+                const sep = document.createElement('span');
+                sep.className = 'breadcrumb-separator';
+                sep.textContent = '>';
+                el.breadcrumbsBar.appendChild(sep);
+
+                const node = document.createElement('span');
+                node.className = 'breadcrumb-node';
+                node.textContent = crumb.name;
+                node.onclick = () => navigateToFolder(crumb.id);
+                el.breadcrumbsBar.appendChild(node);
+            });
+        }
+
+        function renderItems() {
+            const folders = state.items.filter(i => i.type === 'FOLDER');
+            const files = state.items.filter(i => i.type === 'FILE');
+
+            if (folders.length === 0 && files.length === 0) {
+                el.foldersSection.style.display = 'none';
+                el.filesSection.style.display = 'none';
+                el.emptyState.style.display = 'flex';
+                return;
+            }
+
+            el.emptyState.style.display = 'none';
+
+            // Render Folders
+            if (folders.length > 0) {
+                el.foldersSection.style.display = 'block';
+                el.foldersGrid.innerHTML = folders.map(f => `
+                    <div class="folder-card" onclick="navigateToFolder('${f.id}')" oncontextmenu="openContextMenu(event, '${f.id}')">
+                        <div class="folder-info">
+                            <svg class="folder-icon"><use href="#icon-folder"></use></svg>
+                            <span class="folder-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+                        </div>
+                        <button class="item-menu-btn" onclick="event.stopPropagation(); openContextMenu(event, '${f.id}')">
+                            <svg><use href="#icon-more"></use></svg>
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                el.foldersSection.style.display = 'none';
+            }
+
+            // Render Files
+            if (files.length > 0) {
+                el.filesSection.style.display = 'block';
+
+                if (state.viewMode === 'grid') {
+                    el.filesGrid.style.display = 'grid';
+                    el.filesTable.style.display = 'none';
+                    el.filesGrid.innerHTML = files.map(file => {
+                        const iconId = getFileIcon(file.name, file.mimeType);
+                        return `
+                            <div class="file-card" onclick="downloadFile('${file.id}')" oncontextmenu="openContextMenu(event, '${file.id}')">
+                                <div class="file-preview">
+                                    <svg><use href="#${iconId}"></use></svg>
+                                </div>
+                                <div class="file-details">
+                                    <div class="file-header-row">
+                                        <span class="file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+                                        <button class="item-menu-btn" onclick="event.stopPropagation(); openContextMenu(event, '${file.id}')">
+                                            <svg><use href="#icon-more"></use></svg>
+                                        </button>
+                                    </div>
+                                    <div class="file-meta">
+                                        <span>${formatBytes(file.size)}</span>
+                                        <span>•</span>
+                                        <span>${formatDate(file.modifiedAt)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    el.filesGrid.style.display = 'none';
+                    el.filesTable.style.display = 'table';
+                    el.filesTableBody.innerHTML = files.map(file => {
+                        const iconId = getFileIcon(file.name, file.mimeType);
+                        return `
+                            <tr onclick="downloadFile('${file.id}')" oncontextmenu="openContextMenu(event, '${file.id}')">
+                                <td>
+                                    <div class="table-name-cell">
+                                        <svg style="width: 20px; height: 20px; color: var(--text-muted);"><use href="#${iconId}"></use></svg>
+                                        <span>${escapeHtml(file.name)}</span>
+                                    </div>
+                                </td>
+                                <td>${formatBytes(file.size)}</td>
+                                <td>${formatDate(file.modifiedAt)}</td>
+                                <td>
+                                    <button class="item-menu-btn" onclick="event.stopPropagation(); openContextMenu(event, '${file.id}')">
+                                        <svg><use href="#icon-more"></use></svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } else {
+                el.filesSection.style.display = 'none';
+            }
+        }
+
+        function navigateToFolder(folderId) {
+            loadDriveItems(folderId);
+        }
+
+        /* ----------------------------------------------------
+           NEW ACTIONS (FOLDER & FILE UPLOADS)
+        ---------------------------------------------------- */
+        el.newActionBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = el.newMenuDropdown.style.display === 'flex';
+            el.newMenuDropdown.style.display = isOpen ? 'none' : 'flex';
+        });
+
+        document.addEventListener('click', () => {
+            el.newMenuDropdown.style.display = 'none';
+            el.userDropdown.style.display = 'none';
+            el.contextMenu.style.display = 'none';
+            el.searchDropdown.style.display = 'none';
+        });
+
+        el.userAvatarBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = el.userDropdown.style.display === 'flex';
+            el.userDropdown.style.display = isOpen ? 'none' : 'flex';
+        });
+
+        function openNewFolderModal() {
+            state.modalAction = 'create_folder';
+            el.modalTitle.textContent = 'New folder';
+            el.modalInputLabel.textContent = 'Folder name';
+            el.modalInputField.value = '';
+            el.modalSelectGroup.style.display = 'none';
+            el.modalSubmitBtn.textContent = 'Create';
+            el.actionModalBackdrop.style.display = 'grid';
+            el.modalInputField.focus();
+        }
+
+        function triggerFileUpload() {
+            el.hiddenFileInput.click();
+        }
+
+        function triggerFolderUpload() {
+            el.hiddenDirectoryInput.click();
+        }
+
+        el.hiddenFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                uploadFiles(Array.from(e.target.files));
+                e.target.value = '';
+            }
+        });
+
+        el.hiddenDirectoryInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                uploadFolderTree(Array.from(e.target.files));
+                e.target.value = '';
+            }
+        });
+
+        async function uploadFiles(files) {
+            if (!files || files.length === 0) return;
+
+            showUploadDrawer(`Uploading ${files.length} file(s)`, files[0].name);
+
+            const formData = new FormData();
+            formData.append('parentId', state.currentFolderId);
+            files.forEach(f => formData.append('files', f));
+
+            try {
+                updateUploadDrawerProgress(40, 'Sending to Telegram…');
+                const res = await fetch('/api/drive/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.message || 'Upload failed');
+                }
+
+                updateUploadDrawerProgress(100, 'Upload Complete!');
+                showToast(`Successfully uploaded ${files.length} file(s)!`, 'success');
+                loadDriveItems(state.currentFolderId);
+                loadStorageSummary();
+                setTimeout(closeUploadDrawer, 3000);
+            } catch (err) {
+                showToast(err.message || 'Failed to upload files', 'error');
+                closeUploadDrawer();
+            }
+        }
+
+        async function uploadFolderTree(files) {
+            if (!files || files.length === 0) return;
+
+            showUploadDrawer(`Uploading folder (${files.length} files)`, files[0].webkitRelativePath || files[0].name);
+
+            const formData = new FormData();
+            formData.append('parentId', state.currentFolderId);
+            files.forEach(f => formData.append('files', f));
+
+            try {
+                updateUploadDrawerProgress(50, 'Creating folder structure on Telegram…');
+                const res = await fetch('/api/drive/upload-folder', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.message || 'Folder upload failed');
+                }
+
+                updateUploadDrawerProgress(100, 'Folder Uploaded!');
+                showToast(`Uploaded entire folder structure!`, 'success');
+                loadDriveItems(state.currentFolderId);
+                loadStorageSummary();
+                setTimeout(closeUploadDrawer, 3000);
+            } catch (err) {
+                showToast(err.message || 'Failed to upload folder', 'error');
+                closeUploadDrawer();
+            }
+        }
+
+        /* ----------------------------------------------------
+           CONTEXT MENU & ACTIONS
+        ---------------------------------------------------- */
+        function openContextMenu(e, itemId) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            state.activeContextItem = state.items.find(i => i.id === itemId);
+            if (!state.activeContextItem) return;
+
+            const isFolder = state.activeContextItem.type === 'FOLDER';
+            document.getElementById('ctx-download').style.display = isFolder ? 'none' : 'flex';
+
+            el.contextMenu.style.left = `${Math.min(e.clientX, window.innerWidth - 200)}px`;
+            el.contextMenu.style.top = `${Math.min(e.clientY, window.innerHeight - 220)}px`;
+            el.contextMenu.style.display = 'flex';
+        }
+
+        async function ctxAction(action) {
+            el.contextMenu.style.display = 'none';
+            const item = state.activeContextItem;
+            if (!item) return;
+
+            if (action === 'download') {
+                downloadFile(item.id);
+            } else if (action === 'rename') {
+                state.modalAction = 'rename';
+                el.modalTitle.textContent = `Rename ${item.isFolder ? 'Folder' : 'File'}`;
+                el.modalInputLabel.textContent = 'Name';
+                el.modalInputField.value = item.name;
+                el.modalSelectGroup.style.display = 'none';
+                el.modalSubmitBtn.textContent = 'Save';
+                el.actionModalBackdrop.style.display = 'grid';
+                el.modalInputField.focus();
+            } else if (action === 'move' || action === 'copy') {
+                state.modalAction = action;
+                el.modalTitle.textContent = action === 'move' ? 'Move to' : 'Copy to';
+                el.modalInputLabel.textContent = 'Item name';
+                el.modalInputField.value = item.name;
+                el.modalInputField.readOnly = true;
+                el.modalSelectGroup.style.display = 'flex';
+                el.modalSubmitBtn.textContent = action === 'move' ? 'Move' : 'Copy';
+
+                // Load folder list
+                await populateFoldersDropdown(item.id);
+                el.actionModalBackdrop.style.display = 'grid';
+            } else if (action === 'delete') {
+                if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
+                    deleteItem(item.id);
+                }
+            }
+        }
+
+        // Tracks the currently selected folder ID in the tree picker
+        let selectedFolderTreeId = 'root';
+
+        async function populateFoldersDropdown(excludeItemId) {
+            try {
+                const res = await fetch('/api/drive/folders');
+                const folders = await res.json();
+                selectedFolderTreeId = 'root';
+                el.folderTreePicker.innerHTML = '';
+                renderFolderTree(el.folderTreePicker, folders, 'root', excludeItemId, 0);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderFolderTree(container, allFolders, parentId, excludeItemId, depth) {
+            // Root entry at depth 0
+            if (depth === 0) {
+                const rootRow = buildTreeRow('root', '🗂️ My Drive (Root)', allFolders, excludeItemId, depth);
+                container.appendChild(rootRow.row);
+                if (rootRow.childrenEl) {
+                    container.appendChild(rootRow.childrenEl);
+                    renderFolderTree(rootRow.childrenEl, allFolders, 'root', excludeItemId, depth + 1);
+                }
+                return;
+            }
+
+            const children = allFolders.filter(f => f.parentId === parentId && f.id !== excludeItemId);
+            children.forEach(folder => {
+                const { row, childrenEl } = buildTreeRow(folder.id, '📁 ' + escapeHtml(folder.name), allFolders, excludeItemId, depth);
+                container.appendChild(row);
+                if (childrenEl) {
+                    container.appendChild(childrenEl);
+                    renderFolderTree(childrenEl, allFolders, folder.id, excludeItemId, depth + 1);
+                }
+            });
+        }
+
+        function buildTreeRow(id, label, allFolders, excludeItemId, depth) {
+            const hasChildren = depth === 0
+                ? allFolders.some(f => f.parentId === 'root' && f.id !== excludeItemId)
+                : allFolders.some(f => f.parentId === id && f.id !== excludeItemId);
+
+            const row = document.createElement('div');
+            row.className = 'tree-row' + (id === 'root' ? ' selected' : '');
+            row.dataset.folderId = id;
+            row.style.paddingLeft = (10 + depth * 18) + 'px';
+
+            const chevron = document.createElement('span');
+            chevron.className = 'tree-chevron' + (hasChildren ? (depth === 0 ? ' open' : '') : ' leaf');
+            chevron.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>`;
+
+            const labelEl = document.createElement('span');
+            labelEl.textContent = label;
+
+            row.appendChild(chevron);
+            row.appendChild(labelEl);
+
+            let childrenEl = null;
+            if (hasChildren) {
+                childrenEl = document.createElement('div');
+                childrenEl.className = 'tree-children' + (depth === 0 ? ' open' : '');
+
+                chevron.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isOpen = childrenEl.classList.toggle('open');
+                    chevron.classList.toggle('open', isOpen);
+                });
+            }
+
+            row.addEventListener('click', () => {
+                // Deselect previous
+                el.folderTreePicker.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
+                row.classList.add('selected');
+                selectedFolderTreeId = id;
+            });
+
+            return { row, childrenEl };
+        }
+
+        async function handleModalSubmit(e) {
+            e.preventDefault();
+            const action = state.modalAction;
+            const inputVal = el.modalInputField.value.trim();
+            const targetParentId = selectedFolderTreeId;
+            const item = state.activeContextItem;
+
+            try {
+                if (action === 'create_folder') {
+                    const res = await fetch('/api/drive/folders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ parentId: state.currentFolderId, name: inputVal })
+                    });
+                    if (!res.ok) throw new Error('Failed to create folder');
+                    showToast('Folder created!', 'success');
+                } else if (action === 'rename') {
+                    const res = await fetch(`/api/drive/items/${encodeURIComponent(item.id)}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: inputVal })
+                    });
+                    if (!res.ok) throw new Error('Failed to rename');
+                    showToast('Item renamed!', 'success');
+                } else if (action === 'move') {
+                    const res = await fetch(`/api/drive/items/${encodeURIComponent(item.id)}/move`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ targetParentId: targetParentId })
+                    });
+                    if (!res.ok) throw new Error('Failed to move');
+                    showToast('Item moved!', 'success');
+                } else if (action === 'copy') {
+                    const res = await fetch(`/api/drive/items/${encodeURIComponent(item.id)}/copy`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ targetParentId: targetParentId })
+                    });
+                    if (!res.ok) throw new Error('Failed to copy');
+                    showToast('Copy created!', 'success');
+                }
+
+                closeModal();
+                loadDriveItems(state.currentFolderId);
+                loadStorageSummary();
+            } catch (err) {
+                showToast(err.message || 'Operation failed', 'error');
+            }
+        }
+
+        function closeModal() {
+            el.actionModalBackdrop.style.display = 'none';
+            el.modalInputField.readOnly = false;
+        }
+
+        function downloadFile(id) {
+            window.location.href = `/api/drive/download/${encodeURIComponent(id)}`;
+        }
+
+        async function deleteItem(id) {
+            try {
+                const res = await fetch(`/api/drive/items/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Failed to delete item');
+                showToast('Item deleted.', 'info');
+                loadDriveItems(state.currentFolderId);
+                loadStorageSummary();
+            } catch (err) {
+                showToast(err.message || 'Error deleting item', 'error');
+            }
+        }
+
+        /* ----------------------------------------------------
+           SEARCH & FILTERS
+        ---------------------------------------------------- */
+        function initSearch() {
+            let searchTimeout = null;
+            el.globalSearchInput.addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                el.clearSearchBtn.style.display = query ? 'grid' : 'none';
+
+                clearTimeout(searchTimeout);
+                if (query.length < 2) {
+                    el.searchDropdown.style.display = 'none';
+                    return;
+                }
+
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const res = await fetch(`/api/drive/search?q=${encodeURIComponent(query)}`);
+                        const results = await res.json();
+                        if (results.length > 0) {
+                            el.searchDropdown.innerHTML = results.map(r => {
+                                const icon = r.type === 'FOLDER' ? 'icon-folder' : getFileIcon(r.name, r.mimeType);
+                                return `
+                                    <div class="search-item" onclick="onSearchResultClick('${r.id}', '${r.type}', '${r.parentId}')">
+                                        <svg style="width: 20px; height: 20px; color: var(--text-muted);"><use href="#${icon}"></use></svg>
+                                        <span style="font-weight: 600;">${escapeHtml(r.name)}</span>
+                                        <span style="font-size: 0.78rem; color: var(--text-subtle); margin-left: auto;">${r.type === 'FOLDER' ? 'Folder' : formatBytes(r.size)}</span>
+                                    </div>
+                                `;
+                            }).join('');
+                            el.searchDropdown.style.display = 'flex';
+                        } else {
+                            el.searchDropdown.innerHTML = '<div style="padding: 12px; color: var(--text-muted); font-size: 0.88rem; text-align: center;">No matching files or folders.</div>';
+                            el.searchDropdown.style.display = 'flex';
+                        }
+                    } catch (err) {
+                        console.error('Search error', err);
+                    }
+                }, 300);
+            });
+
+            el.clearSearchBtn.addEventListener('click', () => {
+                el.globalSearchInput.value = '';
+                el.clearSearchBtn.style.display = 'none';
+                el.searchDropdown.style.display = 'none';
+            });
+        }
+
+        function onSearchResultClick(id, type, parentId) {
+            el.searchDropdown.style.display = 'none';
+            if (type === 'FOLDER') {
+                navigateToFolder(id);
+            } else {
+                downloadFile(id);
+            }
+        }
+
+        /* ----------------------------------------------------
+           DRAG AND DROP
+        ---------------------------------------------------- */
+        function initDragAndDrop() {
+            const dropzone = el.mainDropzone;
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    el.dragOverlay.style.display = 'grid';
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    el.dragOverlay.style.display = 'none';
+                }, false);
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    uploadFiles(Array.from(files));
+                }
+            });
+        }
+
+        /* ----------------------------------------------------
+           VIEW TOGGLES
+        ---------------------------------------------------- */
+        function initViewToggles() {
+            el.gridViewBtn.addEventListener('click', () => {
+                state.viewMode = 'grid';
+                localStorage.setItem('teledrive_view', 'grid');
+                el.gridViewBtn.classList.add('active');
+                el.listViewBtn.classList.remove('active');
+                renderItems();
+            });
+
+            el.listViewBtn.addEventListener('click', () => {
+                state.viewMode = 'list';
+                localStorage.setItem('teledrive_view', 'list');
+                el.listViewBtn.classList.add('active');
+                el.gridViewBtn.classList.remove('active');
+                renderItems();
+            });
+
+            el.refreshDriveBtn.addEventListener('click', () => {
+                syncDriveWithProgress(state.currentFolderId);
+                showToast('Syncing with Telegram...', 'info');
+            });
+
+            el.refreshStorageBtn.addEventListener('click', () => {
+                loadStorageSummary();
+                showToast('Storage recalculated', 'info');
+            });
+        }
+
+        /* ----------------------------------------------------
+           UPLOAD PROGRESS DRAWER
+        ---------------------------------------------------- */
+        function showUploadDrawer(title, filename) {
+            el.uploadDrawerTitle.textContent = title;
+            el.uploadDrawerFilename.textContent = filename;
+            el.uploadDrawerProgress.style.width = '0%';
+            el.uploadDrawerPercent.textContent = '0%';
+            el.uploadDrawer.style.display = 'flex';
+        }
+
+        function updateUploadDrawerProgress(percent, filename) {
+            el.uploadDrawerProgress.style.width = `${percent}%`;
+            el.uploadDrawerPercent.textContent = `${percent}%`;
+            if (filename) el.uploadDrawerFilename.textContent = filename;
+        }
+
+        function closeUploadDrawer() {
+            el.uploadDrawer.style.display = 'none';
+        }
+
+        /* ----------------------------------------------------
+           HELPERS & TOASTS
+        ---------------------------------------------------- */
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            el.toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                toast.style.transition = 'all .3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return '—';
+            const date = new Date(timestamp);
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function getFileIcon(filename, mimeType = '') {
+            const ext = (filename.split('.').pop() || '').toLowerCase();
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext) || mimeType.startsWith('image/')) return 'icon-image';
+            if (['mp4', 'mkv', 'avi', 'mov', 'webm'].includes(ext) || mimeType.startsWith('video/')) return 'icon-video';
+            if (['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(ext) || mimeType.startsWith('audio/')) return 'icon-audio';
+            if (ext === 'pdf') return 'icon-pdf';
+            if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'icon-archive';
+            return 'icon-file';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.replace(/[&<>"']/g, m => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            })[m]);
+        }
+    </script>
+</body>
+</html>
