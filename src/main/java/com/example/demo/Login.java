@@ -45,6 +45,7 @@ public class Login implements ClientInteraction {
     private volatile String codeDescription = "";
     private volatile int codeTimeout = 60;
     private volatile String accountName = "";
+    private volatile String qrCodeLink = "";
     private volatile String lastError = null;
 
     @GetMapping("/setPhno")
@@ -57,6 +58,16 @@ public class Login implements ClientInteraction {
                                                           @RequestParam(value = "phoneNumber", required = false) String paramPhone) {
         String phone = body != null && body.containsKey("phoneNumber") ? body.get("phoneNumber") : paramPhone;
         return initiateLoginFlow(phone);
+    }
+
+    @GetMapping("/qr")
+    public ResponseEntity<AuthResponse> qrLoginGet() {
+        return initiateQrLoginFlow();
+    }
+
+    @PostMapping("/qr")
+    public ResponseEntity<AuthResponse> qrLoginPost() {
+        return initiateQrLoginFlow();
     }
 
     @GetMapping("/status")
@@ -106,6 +117,60 @@ public class Login implements ClientInteraction {
     @PostMapping("/logout")
     public ResponseEntity<AuthResponse> logoutPost() {
         return handleLogout();
+    }
+
+
+    private synchronized ResponseEntity<AuthResponse> initiateQrLoginFlow() {
+        this.currentPhoneNumber = "";
+        this.lastError = null;
+        this.currentStatus = "STARTING";
+        this.codeType = "qr";
+        this.codeDescription = "Open Telegram on your mobile phone, go to Settings -> Devices -> Add Device and scan the QR code to log in.";
+        this.accountName = "";
+        this.qrCodeLink = "";
+        this.qrCodeLink = "";
+
+        log.info("Initiating Telegram QR Code login flow");
+
+        try {
+            closeExistingClient();
+
+            Path databasePath = Paths.get(dbPath).toAbsolutePath().normalize();
+            Files.createDirectories(databasePath);
+
+            APIToken apiToken = new APIToken(apiId, apiHash);
+            TDLibSettings settings = TDLibSettings.create(apiToken);
+            settings.setDatabaseDirectoryPath(databasePath.resolve("data"));
+            settings.setDownloadedFilesDirectoryPath(databasePath.resolve("downloads"));
+
+            if (clientFactory == null) {
+                clientFactory = new SimpleTelegramClientFactory();
+            }
+
+            SimpleTelegramClientBuilder builder = clientFactory.builder(settings);
+            builder.setClientInteraction(this);
+            builder.addUpdateHandler(TdApi.UpdateAuthorizationState.class, this::onAuthorizationStateUpdate);
+            builder.addDefaultExceptionHandler(this::onExceptionHandler);
+            builder.addUpdateExceptionHandler(this::onExceptionHandler);
+
+            AuthenticationSupplier<?> authenticationData = AuthenticationSupplier.qrCode();
+            this.client = builder.build(authenticationData);
+
+            // Wait up to 10 seconds for TDLib to connect and issue QR confirmation link
+            for (int i = 0; i < 100; i++) {
+                if ("WAITING_FOR_QR".equals(currentStatus) || "READY".equals(currentStatus) || "ERROR".equals(currentStatus)) {
+                    break;
+                }
+                Thread.sleep(100);
+            }
+
+            return ResponseEntity.ok(getSnapshot());
+        } catch (Exception e) {
+            log.error("Failed to initiate Telegram QR Code login", e);
+            this.lastError = sanitizeErrorMessage(e.getMessage());
+            this.currentStatus = "ERROR";
+            return ResponseEntity.internalServerError().body(getSnapshot());
+        }
     }
 
     private synchronized ResponseEntity<AuthResponse> initiateLoginFlow(String rawPhone) {
@@ -300,6 +365,7 @@ public class Login implements ClientInteraction {
         this.currentStatus = "LOGGED_OUT";
         this.currentPhoneNumber = "";
         this.accountName = "";
+        this.qrCodeLink = "";
         this.lastError = null;
         log.info("Hard logout complete. Next login will require a fresh OTP.");
         return ResponseEntity.ok(getSnapshot());
@@ -346,7 +412,13 @@ public class Login implements ClientInteraction {
         TdApi.AuthorizationState state = update.authorizationState;
         log.info("TDLib Authorization state updated: {}", state.getClass().getSimpleName());
 
-        if (state instanceof TdApi.AuthorizationStateWaitCode waitCode) {
+        if (state instanceof TdApi.AuthorizationStateWaitOtherDeviceConfirmation waitOther) {
+            this.currentStatus = "WAITING_FOR_QR";
+            this.lastError = null;
+            this.qrCodeLink = waitOther.link;
+            this.codeDescription = "Open Telegram on your mobile phone, go to Settings -> Devices -> Add Device and scan the QR code to log in.";
+            log.info(">>> QR Code login link received: {}", waitOther.link);
+        } else if (state instanceof TdApi.AuthorizationStateWaitCode waitCode) {
             this.currentStatus = "WAITING_FOR_CODE";
             this.lastError = null;
             this.codeTimeout = waitCode.codeInfo.timeout;
@@ -453,7 +525,8 @@ public class Login implements ClientInteraction {
                 codeTimeout,
                 accountName,
                 lastError,
-                currentPhoneNumber
+                currentPhoneNumber,
+                qrCodeLink
         );
     }
 
@@ -505,6 +578,7 @@ public class Login implements ClientInteraction {
             int timeout,
             String accountName,
             String error,
-            String phoneNumber
+            String phoneNumber,
+            String qrCodeLink
     ) {}
 }
