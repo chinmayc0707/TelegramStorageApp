@@ -1586,6 +1586,35 @@
                     </button>
                 </form>
 
+                <!-- QR Login Button on Phone Step -->
+                <div style="margin-top: 12px; width: 100%; text-align: center;">
+                    <div style="display: flex; align-items: center; margin: 12px 0; font-size: 0.8rem; color: var(--text-subtle);">
+                        <div style="flex: 1; height: 1px; background: var(--border-color);"></div>
+                        <span style="padding: 0 10px;">OR</span>
+                        <div style="flex: 1; height: 1px; background: var(--border-color);"></div>
+                    </div>
+                    <button id="use-qr-btn" class="btn-secondary" type="button" style="width: 100%;">
+                        <svg style="width: 18px; height: 18px;"><use href="#icon-drive"></use></svg>
+                        <span>Log in with QR Code</span>
+                    </button>
+                </div>
+
+                <!-- QR Code Step -->
+                <div id="qr-step" class="auth-form" style="display: none;">
+                    <button id="back-from-qr-btn" class="auth-back-link" type="button">
+                        ← Log in with Phone Number
+                    </button>
+                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 8px 0;">
+                        <div id="qr-code-container" style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; width: 220px; height: 220px;">
+                            <div class="spinner dark" style="width: 32px; height: 32px;"></div>
+                        </div>
+                        <div class="delivery-hint" style="width: 100%; font-size: 0.83rem;">
+                            <svg style="width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px;"><use href="#icon-drive"></use></svg>
+                            <span id="qr-instructions-text">Open Telegram on your phone, go to <strong>Settings → Devices → Add Device</strong> (or Link Desktop Device) to scan this QR code.</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- OTP Step -->
                 <form id="otp-form" class="auth-form" style="display: none;">
                     <button id="back-to-phone-btn" class="auth-back-link" type="button">
@@ -1915,7 +1944,8 @@
             modalAction: null,
             authInterval: null,
             resendCountdown: 60,
-            resendTimer: null
+            resendTimer: null,
+            qrPollInterval: null
         };
 
         /* ----------------------------------------------------
@@ -1937,6 +1967,11 @@
             timerVal: document.getElementById('timer-val'),
             backToPhoneBtn: document.getElementById('back-to-phone-btn'),
             twofaPassword: document.getElementById('twofa-password'),
+            useQrBtn: document.getElementById('use-qr-btn'),
+            qrStep: document.getElementById('qr-step'),
+            backFromQrBtn: document.getElementById('back-from-qr-btn'),
+            qrCodeContainer: document.getElementById('qr-code-container'),
+            qrInstructionsText: document.getElementById('qr-instructions-text'),
 
             // Drive Elements
             globalSearchInput: document.getElementById('global-search-input'),
@@ -2016,6 +2051,8 @@
                 const data = await res.json();
                 if (data.status === 'READY') {
                     showDriveView(data);
+                } else if (data.status === 'WAITING_FOR_QR') {
+                    showQrStep(data);
                 } else if (data.status === 'WAITING_FOR_CODE') {
                     showOtpStep(data);
                 } else if (data.status === 'WAITING_FOR_PASSWORD') {
@@ -2030,14 +2067,17 @@
         }
 
         function showAuthView() {
+            clearInterval(state.qrPollInterval);
             el.authView.style.display = 'flex';
             el.driveView.style.display = 'none';
             el.phoneForm.style.display = 'flex';
+            if (el.qrStep) el.qrStep.style.display = 'none';
             el.otpForm.style.display = 'none';
             el.passwordForm.style.display = 'none';
         }
 
         function showDriveView(authData) {
+            clearInterval(state.qrPollInterval);
             el.authView.style.display = 'none';
             el.driveView.style.display = 'flex';
 
@@ -2165,6 +2205,81 @@
             startResendTimer(data.timeout || 60);
             el.otpBoxes[0].focus();
         }
+
+
+        function showQrStep(data) {
+            el.phoneForm.style.display = 'none';
+            el.otpForm.style.display = 'none';
+            el.passwordForm.style.display = 'none';
+            el.qrStep.style.display = 'flex';
+
+            if (data && data.qrCodeLink) {
+                renderQrCode(data.qrCodeLink);
+            }
+            if (data && data.codeDescription) {
+                el.qrInstructionsText.innerHTML = data.codeDescription.replace('Settings -> Devices -> Add Device', '<strong>Settings → Devices → Add Device</strong>');
+            } else {
+                el.qrInstructionsText.innerHTML = 'Open Telegram on your phone, go to <strong>Settings → Devices → Add Device</strong> to scan this QR code.';
+            }
+
+            startQrPolling();
+        }
+
+        function renderQrCode(link) {
+            const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(link);
+            el.qrCodeContainer.innerHTML = '<img src="' + qrApiUrl + '" alt="Telegram Login QR Code" style="width: 100%; height: 100%; border-radius: 8px; object-fit: contain;" />';
+        }
+
+        function startQrPolling() {
+            clearInterval(state.qrPollInterval);
+            state.qrPollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch('/login/status');
+                    const data = await res.json();
+                    if (data.status === 'READY') {
+                        clearInterval(state.qrPollInterval);
+                        showToast('Successfully authenticated via QR Code!', 'success');
+                        showDriveView(data);
+                    } else if (data.status === 'WAITING_FOR_PASSWORD') {
+                        clearInterval(state.qrPollInterval);
+                        showPasswordStep();
+                        showToast('Two-step verification required.', 'info');
+                    } else if (data.status === 'WAITING_FOR_QR' && data.qrCodeLink) {
+                        renderQrCode(data.qrCodeLink);
+                    } else if (data.status === 'ERROR') {
+                        clearInterval(state.qrPollInterval);
+                        showToast(data.error || 'QR login session expired. Please try again.', 'error');
+                        showAuthView();
+                    }
+                } catch (err) {
+                    console.error('QR polling error', err);
+                }
+            }, 1000);
+        }
+
+        if (el.useQrBtn) {
+            el.useQrBtn.addEventListener('click', async () => {
+                el.useQrBtn.disabled = true;
+                el.useQrBtn.innerHTML = '<span class="spinner dark"></span><span>Generating QR Code…</span>';
+                try {
+                    const res = await fetch('/login/qr', { method: 'POST' });
+                    const data = await res.json();
+                    showQrStep(data);
+                } catch (err) {
+                    showToast('Failed to generate QR code.', 'error');
+                } finally {
+                    el.useQrBtn.disabled = false;
+                    el.useQrBtn.innerHTML = '<svg style="width: 18px; height: 18px;"><use href="#icon-drive"></use></svg><span>Log in with QR Code</span>';
+                }
+            });
+        }
+
+        if (el.backFromQrBtn) {
+            el.backFromQrBtn.addEventListener('click', () => {
+                showAuthView();
+            });
+        }
+
 
         function showPasswordStep() {
             el.phoneForm.style.display = 'none';
