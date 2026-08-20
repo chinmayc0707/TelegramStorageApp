@@ -41,3 +41,5 @@ src/main/resources/database
 *.sqlite
 *.binlog
 *.class
+
+telegram-data
