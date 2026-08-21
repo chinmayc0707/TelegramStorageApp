@@ -580,7 +580,7 @@ public class Login implements ClientInteraction {
         this.lastError = sanitizeErrorMessage(rawMsg);
         // If TDLib fails while still starting up, move to ERROR so the frontend
         // stops polling and shows the login form instead of loading forever.
-        if ("STARTING".equals(currentStatus) || "IDLE".equals(currentStatus) || "WAITING_FOR_QR".equals(currentStatus)) {
+        if ("STARTING".equals(currentStatus) || "IDLE".equals(currentStatus)) {
             this.currentStatus = "ERROR";
         }
     }
