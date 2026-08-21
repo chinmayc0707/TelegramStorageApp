@@ -576,7 +576,7 @@ public class Login implements ClientInteraction {
         this.lastError = sanitizeErrorMessage(rawMsg);
         // If TDLib fails while still starting up, move to ERROR so the frontend
         // stops polling and shows the login form instead of loading forever.
-        if ("STARTING".equals(currentStatus) || "IDLE".equals(currentStatus)) {
+        if ("STARTING".equals(currentStatus) || "IDLE".equals(currentStatus) || "WAITING_FOR_QR".equals(currentStatus)) {
             this.currentStatus = "ERROR";
         }
     }
@@ -662,6 +662,9 @@ public class Login implements ClientInteraction {
     private String sanitizeErrorMessage(String msg) {
         if (msg == null || msg.trim().isEmpty()) {
             return "An unexpected Telegram error occurred.";
+        }
+        if (msg.contains("AUTH_TOKEN_EXPIRED") || msg.contains("EXPIRED")) {
+            return "QR login token expired.";
         }
         if (msg.contains("PHONE_NUMBER_INVALID")) {
             return "The phone number entered is invalid for Telegram. Please check the country code and number.";
