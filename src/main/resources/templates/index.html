@@ -2056,6 +2056,11 @@
                     showOtpStep(data);
                 } else if (data.status === 'WAITING_FOR_PASSWORD') {
                     showPasswordStep();
+                } else if (data.status === 'STARTING') {
+                    // TDLib is auto-resuming a cached session in the background.
+                    // Show a non-intrusive "reconnecting" overlay and poll until ready.
+                    showReconnectingOverlay();
+                    await pollUntilReadyOnStartup();
                 } else {
                     showAuthView();
                 }
@@ -2063,6 +2068,81 @@
                 console.error('Failed to check auth status', err);
                 showAuthView();
             }
+        }
+
+        function showReconnectingOverlay() {
+            // Hide everything else so nothing shows underneath the overlay
+            el.authView.style.display = 'none';
+            el.driveView.style.display = 'none';
+
+            // Inject a full-screen reconnecting notice if not already present
+            if (!document.getElementById('reconnect-notice')) {
+                const notice = document.createElement('div');
+                notice.id = 'reconnect-notice';
+                notice.style.cssText = [
+                    'position:fixed', 'inset:0', 'display:flex', 'flex-direction:column',
+                    'align-items:center', 'justify-content:center', 'gap:16px',
+                    'background:var(--bg-base)', 'z-index:9999', 'text-align:center'
+                ].join(';');
+                notice.innerHTML = `
+                    <svg style="width:52px;height:52px;color:var(--primary);animation:floatSlow 3s ease-in-out infinite"
+                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+                    </svg>
+                    <h2 style="font-size:1.25rem;font-weight:700;color:var(--text-main);margin:0;">Reconnecting to Telegram</h2>
+                    <p style="color:var(--text-muted);font-size:0.88rem;margin:0;">Resuming your session, please wait...</p>
+                    <div style="width:220px;height:6px;background:var(--bg-subtle);border-radius:99px;overflow:hidden;">
+                        <div style="height:100%;background:linear-gradient(90deg,#2563eb,#38bdf8);border-radius:99px;animation:reconnectBar 1.5s ease-in-out infinite;"></div>
+                    </div>
+                    <style>
+                        @keyframes reconnectBar {
+                            0%   { width:0%;  margin-left:0; }
+                            50%  { width:60%; margin-left:20%; }
+                            100% { width:0%;  margin-left:100%; }
+                        }
+                    </style>
+                `;
+                document.body.appendChild(notice);
+            }
+        }
+
+        function hideReconnectingOverlay() {
+            const notice = document.getElementById('reconnect-notice');
+            if (notice) notice.remove();
+        }
+
+        async function pollUntilReadyOnStartup() {
+            const MAX_POLLS = 120; // 60 seconds
+            for (let i = 0; i < MAX_POLLS; i++) {
+                await new Promise(r => setTimeout(r, 500));
+                try {
+                    const res = await fetch('/login/status');
+                    const data = await res.json();
+                    if (data.status === 'READY') {
+                        hideReconnectingOverlay();
+                        showDriveView(data);
+                        return;
+                    } else if (data.status === 'WAITING_FOR_CODE') {
+                        hideReconnectingOverlay();
+                        showOtpStep(data);
+                        return;
+                    } else if (data.status === 'WAITING_FOR_PASSWORD') {
+                        hideReconnectingOverlay();
+                        showPasswordStep();
+                        return;
+                    } else if (data.status === 'ERROR' || data.status === 'LOGGED_OUT' || data.status === 'IDLE' || data.error) {
+                        hideReconnectingOverlay();
+                        showAuthView();
+                        return;
+                    }
+                    // Still STARTING — keep polling
+                } catch (err) {
+                    // Network hiccup, keep trying
+                }
+            }
+            // Timed out — fall back to login screen
+            hideReconnectingOverlay();
+            showAuthView();
         }
 
         function showAuthView() {

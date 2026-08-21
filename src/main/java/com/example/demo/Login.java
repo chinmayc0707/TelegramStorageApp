@@ -2,6 +2,8 @@ package com.example.demo;
 
 import it.tdlight.client.*;
 import it.tdlight.jni.TdApi;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,6 +49,62 @@ public class Login implements ClientInteraction {
     private volatile String accountName = "";
     private volatile String qrCodeLink = "";
     private volatile String lastError = null;
+    /** Subdirectory of dbPath used as TDLib database for the currently active user. */
+    private volatile String currentDataSubDir = "data";
+
+    /** Returns the per-user TDLib database subdirectory name derived from the phone number. */
+    private String dataSubDir(String phone) {
+        if (phone == null || phone.isBlank()) return "data";
+        // Strip everything except digits so the path is always filesystem-safe
+        String digits = phone.replaceAll("[^0-9]", "");
+        return digits.isEmpty() ? "data" : "data-" + digits;
+    }
+
+    @PostConstruct
+    public void autoStart() {
+        Path databasePath = Paths.get(dbPath).toAbsolutePath().normalize();
+        // Load the last used phone to determine which user's DB directory to resume
+        String savedPhone = loadSavedPhone();
+        String dataDir = dataSubDir(savedPhone);
+
+        // Check the per-user directory; fall back to legacy "data" for backward compat
+        boolean hasSession = Files.exists(databasePath.resolve(dataDir));
+        if (!hasSession && Files.exists(databasePath.resolve("data"))) {
+            dataDir = "data";
+            hasSession = true;
+        }
+        if (!hasSession) {
+            log.info("No existing Telegram session found – waiting for manual login.");
+            return;
+        }
+        log.info("Existing Telegram session detected ({}) – resuming automatically.", dataDir);
+        this.currentDataSubDir = dataDir;
+        this.currentStatus = "STARTING";
+        if (savedPhone != null) this.currentPhoneNumber = savedPhone;
+        final String resolvedDir = dataDir;
+        final String resolvedPhone = savedPhone;
+        CompletableFuture.runAsync(() -> {
+            try {
+                startClientWithPhone(resolvedPhone, resolvedDir);
+            } catch (Exception e) {
+                log.warn("Auto-resume failed (will require manual login): {}", e.getMessage());
+                currentStatus = "ERROR";
+                lastError = "Auto-resume failed: " + e.getMessage();
+            }
+        });
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        log.info("Application shutting down – closing Telegram client.");
+        closeExistingClient();
+        if (clientFactory != null) {
+            try {
+                clientFactory.close();
+            } catch (Exception ignored) {
+            }
+        }
+    }
 
     @GetMapping("/setPhno")
     public ResponseEntity<AuthResponse> setPhoneNumberGet(@RequestParam("phoneNumber") String phoneNumber) {
@@ -128,7 +186,6 @@ public class Login implements ClientInteraction {
         this.codeDescription = "Open Telegram on your mobile phone, go to Settings -> Devices -> Add Device and scan the QR code to log in.";
         this.accountName = "";
         this.qrCodeLink = "";
-        this.qrCodeLink = "";
 
         log.info("Initiating Telegram QR Code login flow");
 
@@ -138,10 +195,14 @@ public class Login implements ClientInteraction {
             Path databasePath = Paths.get(dbPath).toAbsolutePath().normalize();
             Files.createDirectories(databasePath);
 
+            // Use a temporary QR directory; once we know the phone after auth, the
+            // directory is renamed to data-{phone} by updateAccountInfo().
+            this.currentDataSubDir = "data-qr";
+
             APIToken apiToken = new APIToken(apiId, apiHash);
             TDLibSettings settings = TDLibSettings.create(apiToken);
-            settings.setDatabaseDirectoryPath(databasePath.resolve("data"));
-            settings.setDownloadedFilesDirectoryPath(databasePath.resolve("downloads"));
+            settings.setDatabaseDirectoryPath(databasePath.resolve("data-qr"));
+            settings.setDownloadedFilesDirectoryPath(databasePath.resolve("downloads-data-qr"));
 
             if (clientFactory == null) {
                 clientFactory = new SimpleTelegramClientFactory();
@@ -202,28 +263,9 @@ public class Login implements ClientInteraction {
         log.info("Initiating Telegram login for phone: {}", phone);
 
         try {
-            closeExistingClient();
-
-            Path databasePath = Paths.get(dbPath).toAbsolutePath().normalize();
-            Files.createDirectories(databasePath);
-
-            APIToken apiToken = new APIToken(apiId, apiHash);
-            TDLibSettings settings = TDLibSettings.create(apiToken);
-            settings.setDatabaseDirectoryPath(databasePath.resolve("data"));
-            settings.setDownloadedFilesDirectoryPath(databasePath.resolve("downloads"));
-
-            if (clientFactory == null) {
-                clientFactory = new SimpleTelegramClientFactory();
-            }
-
-            SimpleTelegramClientBuilder builder = clientFactory.builder(settings);
-            builder.setClientInteraction(this);
-            builder.addUpdateHandler(TdApi.UpdateAuthorizationState.class, this::onAuthorizationStateUpdate);
-            builder.addDefaultExceptionHandler(this::onExceptionHandler);
-            builder.addUpdateExceptionHandler(this::onExceptionHandler);
-
-            AuthenticationSupplier<?> authenticationData = AuthenticationSupplier.user(phone);
-            this.client = builder.build(authenticationData);
+            String dataDir = dataSubDir(phone);
+            this.currentDataSubDir = dataDir;
+            startClientWithPhone(phone, dataDir);
 
             // Wait up to 10 seconds for TDLib to connect and request the OTP
             for (int i = 0; i < 100; i++) {
@@ -240,6 +282,69 @@ public class Login implements ClientInteraction {
             this.currentStatus = "ERROR";
             return ResponseEntity.internalServerError().body(getSnapshot());
         }
+    }
+
+    /**
+     * Creates and starts the TDLib client.
+     *
+     * @param phone   Telegram phone number for authentication (may be null/empty for session resume)
+     * @param dataDir Subdirectory of {@code dbPath} to use as TDLib database (per-user isolation)
+     */
+    private synchronized void startClientWithPhone(String phone, String dataDir) throws Exception {
+        closeExistingClient();
+
+        Path databasePath = Paths.get(dbPath).toAbsolutePath().normalize();
+        Files.createDirectories(databasePath);
+
+        APIToken apiToken = new APIToken(apiId, apiHash);
+        TDLibSettings settings = TDLibSettings.create(apiToken);
+        // Per-user isolation: each phone number gets its own TDLib DB subdirectory
+        settings.setDatabaseDirectoryPath(databasePath.resolve(dataDir));
+        settings.setDownloadedFilesDirectoryPath(databasePath.resolve("downloads-" + dataDir));
+
+        if (clientFactory == null) {
+            clientFactory = new SimpleTelegramClientFactory();
+        }
+
+        SimpleTelegramClientBuilder builder = clientFactory.builder(settings);
+        builder.setClientInteraction(this);
+        builder.addUpdateHandler(TdApi.UpdateAuthorizationState.class, this::onAuthorizationStateUpdate);
+        builder.addDefaultExceptionHandler(this::onExceptionHandler);
+        builder.addUpdateExceptionHandler(this::onExceptionHandler);
+
+        // Provide the phone to AuthenticationSupplier; TDLib will use the cached
+        // session if valid and ignore the phone. The phone is only used if TDLib
+        // needs to re-authenticate (e.g. after session expiry).
+        String effectivePhone = (phone != null && !phone.trim().isEmpty()) ? phone
+                : (currentPhoneNumber != null && !currentPhoneNumber.isEmpty() ? currentPhoneNumber : "+1");
+        this.client = builder.build(AuthenticationSupplier.user(effectivePhone));
+    }
+
+    private void savePhoneToFile(String phone) {
+        if (phone == null || phone.isBlank()) return;
+        try {
+            Path phonePath = Paths.get(dbPath).toAbsolutePath().normalize().resolve("phone.txt");
+            Files.writeString(phonePath, phone);
+            log.info("Phone number saved for future auto-resume.");
+        } catch (Exception e) {
+            log.warn("Could not save phone number to file: {}", e.getMessage());
+        }
+    }
+
+    private String loadSavedPhone() {
+        try {
+            Path phonePath = Paths.get(dbPath).toAbsolutePath().normalize().resolve("phone.txt");
+            if (Files.exists(phonePath)) {
+                String phone = Files.readString(phonePath).trim();
+                if (!phone.isBlank()) {
+                    log.info("Loaded saved phone for auto-resume: {}", phone);
+                    return phone;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not load saved phone number: {}", e.getMessage());
+        }
+        return null;
     }
 
     private synchronized ResponseEntity<AuthResponse> handleOtpSubmission(String rawCode) {
@@ -453,6 +558,10 @@ public class Login implements ClientInteraction {
             this.currentStatus = "READY";
             this.lastError = null;
             updateAccountInfo();
+            // Persist the phone number so auto-resume after restart can reuse it
+            if (currentPhoneNumber != null && !currentPhoneNumber.isEmpty()) {
+                savePhoneToFile(currentPhoneNumber);
+            }
             log.info(">>> Authorization State READY! User is authenticated.");
         } else if (state instanceof TdApi.AuthorizationStateClosed) {
             this.currentStatus = "LOGGED_OUT";
@@ -465,6 +574,11 @@ public class Login implements ClientInteraction {
         String rawMsg = throwable.getMessage() == null ? throwable.toString() : throwable.getMessage();
         log.error("TDLib exception: {}", rawMsg);
         this.lastError = sanitizeErrorMessage(rawMsg);
+        // If TDLib fails while still starting up, move to ERROR so the frontend
+        // stops polling and shows the login form instead of loading forever.
+        if ("STARTING".equals(currentStatus) || "IDLE".equals(currentStatus)) {
+            this.currentStatus = "ERROR";
+        }
     }
 
     private void updateAccountInfo() {
@@ -477,6 +591,11 @@ public class Login implements ClientInteraction {
                     this.accountName = name.isEmpty() ? "Telegram User" : name;
                     if (user.phoneNumber != null && !user.phoneNumber.isEmpty()) {
                         this.currentPhoneNumber = user.phoneNumber.startsWith("+") ? user.phoneNumber : "+" + user.phoneNumber;
+                        // Update the per-user DB directory tracking (critical for QR login
+                        // which starts with a temporary "data-qr" directory)
+                        this.currentDataSubDir = dataSubDir(this.currentPhoneNumber);
+                        // Persist the resolved phone number for future auto-resume
+                        savePhoneToFile(this.currentPhoneNumber);
                     }
                     log.info("Logged in as: {} ({})", this.accountName, this.currentPhoneNumber);
                 }
@@ -501,17 +620,27 @@ public class Login implements ClientInteraction {
     private void wipeDatabase() {
         try {
             Path databasePath = Paths.get(dbPath).toAbsolutePath().normalize();
-            if (Files.exists(databasePath)) {
-                Files.walk(databasePath)
+            // Only wipe the current user's data directory, not others'
+            Path dataPath = databasePath.resolve(currentDataSubDir);
+            if (Files.exists(dataPath)) {
+                Files.walk(dataPath)
                         .sorted(Comparator.reverseOrder())
                         .forEach(p -> {
-                            try {
-                                Files.delete(p);
-                            } catch (IOException ignored) {
-                            }
+                            try { Files.delete(p); } catch (IOException ignored) {}
                         });
-                log.info("Session database wiped: {}", databasePath);
+                log.info("Session database wiped: {}", dataPath);
             }
+            // Also remove the downloads dir for this user
+            Path downloadsPath = databasePath.resolve("downloads-" + currentDataSubDir);
+            if (Files.exists(downloadsPath)) {
+                Files.walk(downloadsPath)
+                        .sorted(Comparator.reverseOrder())
+                        .forEach(p -> {
+                            try { Files.delete(p); } catch (IOException ignored) {}
+                        });
+            }
+            // Clear phone.txt so auto-resume won't try to resume the wiped session
+            Files.deleteIfExists(databasePath.resolve("phone.txt"));
         } catch (IOException e) {
             log.warn("Could not fully wipe session database: {}", e.getMessage());
         }
