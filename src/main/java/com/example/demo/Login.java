@@ -195,6 +195,10 @@ public class Login implements ClientInteraction {
             Path databasePath = Paths.get(dbPath).toAbsolutePath().normalize();
             Files.createDirectories(databasePath);
 
+            // Wipe any previous stale QR database/tokens before starting
+            deleteDirectory(databasePath.resolve("data-qr"));
+            deleteDirectory(databasePath.resolve("downloads-data-qr"));
+
             // Use a temporary QR directory; once we know the phone after auth, the
             // directory is renamed to data-{phone} by updateAccountInfo().
             this.currentDataSubDir = "data-qr";
@@ -603,6 +607,17 @@ public class Login implements ClientInteraction {
         }
     }
 
+    private void deleteDirectory(Path path) {
+        if (path == null || !Files.exists(path)) return;
+        try {
+            Files.walk(path)
+                    .sorted(Comparator.reverseOrder())
+                    .forEach(p -> {
+                        try { Files.delete(p); } catch (IOException ignored) {}
+                    });
+        } catch (IOException ignored) {}
+    }
+
     private void closeExistingClient() {
         if (client != null) {
             try {
@@ -632,13 +647,11 @@ public class Login implements ClientInteraction {
             }
             // Also remove the downloads dir for this user
             Path downloadsPath = databasePath.resolve("downloads-" + currentDataSubDir);
-            if (Files.exists(downloadsPath)) {
-                Files.walk(downloadsPath)
-                        .sorted(Comparator.reverseOrder())
-                        .forEach(p -> {
-                            try { Files.delete(p); } catch (IOException ignored) {}
-                        });
-            }
+            deleteDirectory(downloadsPath);
+
+            // Clean up temporary QR session data if present
+            deleteDirectory(databasePath.resolve("data-qr"));
+            deleteDirectory(databasePath.resolve("downloads-data-qr"));
             // Clear phone.txt so auto-resume won't try to resume the wiped session
             Files.deleteIfExists(databasePath.resolve("phone.txt"));
         } catch (IOException e) {
